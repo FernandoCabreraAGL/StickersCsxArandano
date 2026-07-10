@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: zebra-label-portal
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PRINTER_IP
+        value: 192.168.1.24
+      - key: PRINTER_PORT
+        value: 9100
