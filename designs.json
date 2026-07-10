@@ -1,0 +1,70 @@
+{
+  "designs": [
+    {
+      "id": "arandano-standard",
+      "name": "Etiqueta Arándano Estándar",
+      "description": "Diseño principal para etiquetas de arándano",
+      "active": true,
+      "elements": [
+        {
+          "id": 1,
+          "type": "text",
+          "label": "Código SENASA",
+          "field": "codigosenasa",
+          "x": 30,
+          "y": 30,
+          "font": "A0N",
+          "fontSize": "28,28",
+          "order": 1
+        },
+        {
+          "id": 2,
+          "type": "text",
+          "label": "Trabajador",
+          "field": "codigotrabajador",
+          "x": 30,
+          "y": 65,
+          "font": "A0N",
+          "fontSize": "24,24",
+          "order": 2
+        },
+        {
+          "id": 3,
+          "type": "text",
+          "label": "Nombre Trabajador",
+          "field": "nombretrabajador",
+          "x": 30,
+          "y": 95,
+          "font": "A0N",
+          "fontSize": "24,24",
+          "order": 3
+        },
+        {
+          "id": 4,
+          "type": "text",
+          "label": "Fecha",
+          "field": "fecha",
+          "x": 30,
+          "y": 190,
+          "font": "A0N",
+          "fontSize": "22,22",
+          "order": 4
+        },
+        {
+          "id": 5,
+          "type": "qr",
+          "label": "Código QR",
+          "field": "qr",
+          "x": 550,
+          "y": 30,
+          "size": "2,5",
+          "order": 5
+        }
+      ],
+      "pageWidth": 812,
+      "pageHeight": 406,
+      "createdAt": "2026-07-10T00:00:00Z",
+      "updatedAt": "2026-07-10T00:00:00Z"
+    }
+  ]
+}

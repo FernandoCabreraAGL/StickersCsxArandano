@@ -29,6 +29,85 @@ const upload = multer({
 });
 
 let currentData = [];
+let designs = [];
+
+// Cargar diseños al iniciar
+function loadDesigns() {
+  try {
+    const data = fs.readFileSync(path.join(__dirname, 'designs.json'), 'utf8');
+    designs = JSON.parse(data).designs || [];
+  } catch (err) {
+    designs = [];
+  }
+}
+
+function saveDesigns() {
+  fs.writeFileSync(path.join(__dirname, 'designs.json'), JSON.stringify({ designs }, null, 2));
+}
+
+loadDesigns();
+
+app.get('/api/designs', (req, res) => {
+  res.json(designs);
+});
+
+app.post('/api/designs', (req, res) => {
+  const { name, description, elements } = req.body;
+  const id = `design-${Date.now()}`;
+  const newDesign = {
+    id,
+    name,
+    description,
+    elements,
+    active: false,
+    pageWidth: 812,
+    pageHeight: 406,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  designs.push(newDesign);
+  saveDesigns();
+  res.json(newDesign);
+});
+
+app.put('/api/designs/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, description, elements } = req.body;
+  const design = designs.find(d => d.id === id);
+  if (!design) return res.status(404).json({ error: 'Diseño no encontrado' });
+
+  design.name = name;
+  design.description = description;
+  design.elements = elements;
+  design.updatedAt = new Date().toISOString();
+  saveDesigns();
+  res.json(design);
+});
+
+app.delete('/api/designs/:id', (req, res) => {
+  const { id } = req.params;
+  designs = designs.filter(d => d.id !== id);
+  saveDesigns();
+  res.json({ success: true });
+});
+
+app.post('/api/designs/:id/duplicate', (req, res) => {
+  const { id } = req.params;
+  const design = designs.find(d => d.id === id);
+  if (!design) return res.status(404).json({ error: 'Diseño no encontrado' });
+
+  const newId = `design-${Date.now()}`;
+  const newDesign = {
+    ...JSON.parse(JSON.stringify(design)),
+    id: newId,
+    name: `${design.name} (Copia)`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  designs.push(newDesign);
+  saveDesigns();
+  res.json(newDesign);
+});
 
 app.post('/api/upload', upload.single('excel'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' });
