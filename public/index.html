@@ -158,6 +158,7 @@
   <div>
     <h1>Portal de Impresión Zebra</h1>
     <div class="subtitle">Zebra ZT231 - Etiquetas de Arándano</div>
+    <div class="subtitle">Ing. Fernando Cabrera - Agualima S.A.C.</div>
   </div>
 </div>
 
@@ -590,22 +591,27 @@ function esc(s) {
 
 // Printer detection - Conectar al agente local
 const AGENT_URL = 'http://127.0.0.1:3001';
+let agentConnected = false;
 
 async function detectPrinters() {
   try {
     const btn = event.target;
     btn.disabled = true;
     btn.textContent = '🔄 Buscando...';
-    toast('Conectando con agente local...', 'info');
+
+    const toastId = toast('🔗 Conectando con agente local en 127.0.0.1:3001...', 'info');
 
     // Primero, verificar si el agente está disponible
-    const statusRes = await fetch(`${AGENT_URL}/api/status`);
+    const statusRes = await fetch(`${AGENT_URL}/api/status`, { mode: 'cors' });
     if (!statusRes.ok) throw new Error('Agente no disponible');
 
     const status = await statusRes.json();
-    const select = document.getElementById('printerSelect');
+    agentConnected = true;
 
-    select.innerHTML = '<option value="">-- Sin impresoras detectadas --</option>';
+    toast('✅ Conectado con agente local', 'success');
+
+    const select = document.getElementById('printerSelect');
+    select.innerHTML = '<option value="">-- Selecciona una impresora --</option>';
 
     if (status.printers && status.printers.length > 0) {
       status.printers.forEach(p => {
@@ -621,17 +627,33 @@ async function detectPrinters() {
         selectPrinter();
       }
 
-      toast(`${status.printers.length} impresora(s) encontrada(s)`, 'success');
+      toast(`✅ ${status.printers.length} impresora(s) disponible(s)`, 'success');
     } else {
-      toast('❌ Agente local no encontró impresoras. Verifica:\n1. Impresoras ZEBRA encendidas\n2. IP correcta (192.168.1.24)\n3. Puerto 9100 abierto', 'error');
+      toast('⚠️ Agente conectado pero sin impresoras en la red.\n\nVerifica:\n1. Impresoras ZEBRA encendidas\n2. Conectadas al puerto 9100', 'error');
     }
 
     btn.disabled = false;
     btn.textContent = '🔄 Buscar';
   } catch (err) {
+    agentConnected = false;
     event.target.disabled = false;
     event.target.textContent = '🔄 Buscar';
-    toast('❌ No se puede conectar con el agente local.\n\n¿Está ejecutando zebra-agent.exe en PC #2?\n\nError: ' + err.message, 'error');
+
+    let errorMsg = '❌ No se puede conectar con el agente local.\n\n';
+    if (err.message.includes('Failed to fetch')) {
+      errorMsg += '⚠️ Error de conexión (CORS/Red)\n\n';
+      errorMsg += '✓ Verifica:\n';
+      errorMsg += '  1. ¿Ejecutaste zebra-agent.exe en PC #2?\n';
+      errorMsg += '  2. ¿Sigue la ventana del agente abierta?\n';
+      errorMsg += '  3. ¿El agente dice "Agente ejecutándose"?\n\n';
+      errorMsg += '💡 Intenta:\n';
+      errorMsg += '  - Cierra y reabre zebra-agent.exe\n';
+      errorMsg += '  - Recarga esta página (Ctrl+F5)';
+    } else {
+      errorMsg += err.message;
+    }
+
+    toast(errorMsg, 'error');
   }
 }
 

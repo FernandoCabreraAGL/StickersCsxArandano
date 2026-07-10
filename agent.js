@@ -8,6 +8,17 @@ const PORT = 3001;
 
 app.use(express.json());
 
+// CORS headers para permitir conexiones desde navegador
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 let detectedPrinters = [];
 let selectedPrinter = null;
 
