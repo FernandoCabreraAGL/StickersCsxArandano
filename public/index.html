@@ -158,7 +158,6 @@
   <div>
     <h1>Portal de Impresión Zebra</h1>
     <div class="subtitle">Zebra ZT231 - Etiquetas de Arándano</div>
-    <div class="subtitle">Ing. Fernando Cabrera - Agualima S.A.C.</div>
   </div>
 </div>
 
@@ -168,27 +167,39 @@
     <h2><span class="icon">&#9881;</span> Configuración de Impresora</h2>
     <div class="config-row">
       <div class="form-group">
-        <label>Impresoras detectadas</label>
-        <div style="display: flex; gap: 8px;">
-          <select id="printerSelect" onchange="selectPrinter()">
-            <option value="">Cargando impresoras...</option>
-          </select>
-          <button class="btn btn-outline" onclick="detectPrinters()">🔄 Buscar</button>
-        </div>
+        <label>IP de Impresora</label>
+        <input type="text" id="printerIp" value="192.168.1.24">
       </div>
       <div class="form-group">
-        <label>Diseño de Etiqueta</label>
-        <div style="display: flex; gap: 8px;">
-          <select id="designSelect">
-            <option value="">Cargando diseños...</option>
-          </select>
-          <button class="btn btn-primary" onclick="openDesignEditor()">✏️ Editar Diseño</button>
-        </div>
+        <label>Puerto</label>
+        <input type="number" id="printerPort" value="9100">
       </div>
       <div class="form-group">
         <label>Copias por etiqueta</label>
         <input type="number" id="copies" value="1" min="1" max="99">
       </div>
+    </div>
+  </div>
+
+  <!-- Design Selection -->
+  <div class="card">
+    <h2><span class="icon">🎨</span> Diseño de Etiqueta</h2>
+    <div class="config-row">
+      <div class="form-group" style="flex: 1;">
+        <label>Diseño activo</label>
+        <select id="designSelect" onchange="updateDesignPreview()">
+          <option value="">Cargando diseños...</option>
+        </select>
+      </div>
+      <div style="display: flex; align-items: flex-end; gap: 8px;">
+        <button class="btn btn-outline" onclick="openMarginsModal()" id="btnEditMargins" disabled>
+          ⚙️ Editar Márgenes
+        </button>
+      </div>
+    </div>
+    <div id="designPreviewContainer" style="margin-top: 12px; display: none;">
+      <h4 style="font-size: 13px; margin-bottom: 8px;">Vista Previa de Márgenes</h4>
+      <svg id="designPreview" width="400" height="200" style="border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb;"></svg>
     </div>
   </div>
 
@@ -283,39 +294,64 @@
   </div>
 </div>
 
-<!-- Design Editor Modal -->
-<div class="modal-overlay" id="designEditorModal">
-  <div class="modal" style="max-width: 1200px;">
-    <h3>✏️ Editor de Diseño</h3>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 16px;">
+<!-- Design Margins Modal -->
+<div class="modal-overlay" id="marginsModal">
+  <div class="modal" style="max-width: 800px;">
+    <h3>⚙️ Editar Márgenes de Diseño</h3>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px;">
+      <!-- Márgenes en MM -->
       <div>
-        <h4>Elementos</h4>
-        <div style="max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px;">
-          <table style="width: 100%; font-size: 12px;">
-            <thead>
-              <tr style="background: #f3f4f6; position: sticky; top: 0;">
-                <th style="padding: 8px; text-align: left;">Elemento</th>
-                <th style="padding: 8px;">X</th>
-                <th style="padding: 8px;">Y</th>
-                <th style="padding: 8px;">Acciones</th>
-              </tr>
-            </thead>
-            <tbody id="elementsTableBody"></tbody>
-          </table>
+        <h4 style="margin-bottom: 12px; font-size: 14px; font-weight: 600;">Márgenes (mm)</h4>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label>Superior</label>
+            <input type="number" id="marginTop" value="5" step="0.5" min="0">
+          </div>
+          <div class="form-group">
+            <label>Inferior</label>
+            <input type="number" id="marginBottom" value="5" step="0.5" min="0">
+          </div>
+          <div class="form-group">
+            <label>Izquierdo</label>
+            <input type="number" id="marginLeft" value="5" step="0.5" min="0">
+          </div>
+          <div class="form-group">
+            <label>Derecho</label>
+            <input type="number" id="marginRight" value="5" step="0.5" min="0">
+          </div>
         </div>
-        <button class="btn btn-success" style="margin-top: 12px; width: 100%;" onclick="addNewElement()">➕ Agregar</button>
       </div>
+
+      <!-- Dimensiones de Página -->
       <div>
-        <h4>Vista Previa ZPL</h4>
-        <div style="background: #f3f4f6; border-radius: 8px; padding: 12px; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 11px; white-space: pre-wrap;" id="previewZPL"></div>
+        <h4 style="margin-bottom: 12px; font-size: 14px; font-weight: 600;">Dimensiones de Página</h4>
+        <div style="display: grid; gap: 12px;">
+          <div class="form-group">
+            <label>Ancho (mm)</label>
+            <input type="number" id="pageWidthMm" value="101.6" step="0.1" min="10">
+          </div>
+          <div class="form-group">
+            <label>Alto (mm)</label>
+            <input type="number" id="pageHeightMm" value="50.8" step="0.1" min="10">
+          </div>
+          <div style="padding: 8px; background: #eff6ff; border-radius: 6px; border-left: 3px solid #1a56db; font-size: 12px;">
+            <strong>203 DPI = 8 dots/mm</strong><br>
+            <span id="conversionInfo" style="color: #6b7280;"></span>
+          </div>
+        </div>
       </div>
     </div>
-    <div style="margin-top: 16px;">
-      <button class="btn btn-outline" onclick="toggleDeveloperMode()">👨‍💻 Modo Desarrollador</button>
+
+    <!-- Preview Visual -->
+    <div style="margin-top: 20px; padding: 16px; background: #f9fafb; border-radius: 8px;">
+      <h4 style="margin-bottom: 12px; font-size: 14px; font-weight: 600;">Vista Previa de Márgenes</h4>
+      <svg id="marginsPreview" width="100%" height="200" style="border: 1px solid #e5e7eb; border-radius: 6px; background: white;"></svg>
     </div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="closeDesignEditor()">Cerrar</button>
-      <button class="btn btn-primary" onclick="saveDesignChanges()">💾 Guardar</button>
+
+    <div class="modal-actions" style="margin-top: 20px;">
+      <button class="btn btn-outline" onclick="closeMarginsModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveMarginsChanges()">💾 Guardar Cambios</button>
     </div>
   </div>
 </div>
@@ -503,48 +539,22 @@ function getConfig() {
 }
 
 async function printSelected() {
+  const config = getConfig();
   const ids = Array.from(state.selected);
-  const copies = parseInt(document.getElementById('copies').value) || 1;
 
   try {
-    // Obtener los registros seleccionados
-    const records = state.data.filter(r => ids.includes(r.id));
-    if (!records.length) throw new Error('No se encontraron registros');
-
-    // Generar ZPL para cada registro
-    let printedCount = 0;
-    for (const record of records) {
-      for (let c = 0; c < copies; c++) {
-        const zpl = await generateZPL(record);
-
-        // Enviar al agente local
-        try {
-          const res = await fetch('http://127.0.0.1:3001/api/print', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ zpl })
-          });
-          if (res.ok) printedCount++;
-        } catch (localErr) {
-          throw new Error('Agente local no disponible. ¿Está ejecutándose el .exe en PC #2?');
-        }
-      }
-    }
-
-    toast(`${printedCount} etiqueta(s) enviada(s) a la impresora`, 'success');
+    toast(`Enviando ${ids.length} etiquetas a impresora...`, 'info');
+    const res = await fetch('/api/print', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, ...config })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    toast(`${data.printed} etiquetas enviadas (${data.copies} copia(s) c/u)`, 'success');
   } catch (err) {
     toast('Error: ' + err.message, 'error');
   }
-}
-
-async function generateZPL(record) {
-  const res = await fetch('/api/preview-zpl', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: record.id })
-  });
-  const data = await res.json();
-  return data.zpl;
 }
 
 function confirmPrintAll() {
@@ -557,35 +567,18 @@ function closeConfirmModal() { document.getElementById('confirmModal').classList
 
 async function printAll() {
   closeConfirmModal();
-  const copies = parseInt(document.getElementById('copies').value) || 1;
+  const config = getConfig();
 
   try {
-    let printedCount = 0;
-
-    // Iterar por todas las páginas
-    for (let page = 1; page <= state.totalPages; page++) {
-      const res = await fetch(`/api/data?page=${page}&limit=1000`);
-      const result = await res.json();
-
-      for (const record of result.data) {
-        for (let c = 0; c < copies; c++) {
-          const zpl = await generateZPL(record);
-
-          try {
-            const printRes = await fetch('http://127.0.0.1:3001/api/print', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ zpl })
-            });
-            if (printRes.ok) printedCount++;
-          } catch (localErr) {
-            throw new Error('Agente local no disponible');
-          }
-        }
-      }
-    }
-
-    toast(`${printedCount} etiqueta(s) enviada(s) correctamente`, 'success');
+    toast(`Enviando ${state.total} etiquetas a impresora...`, 'info');
+    const res = await fetch('/api/print-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    toast(`${data.printed} etiquetas enviadas (${data.copies} copia(s) c/u)`, 'success');
   } catch (err) {
     toast('Error: ' + err.message, 'error');
   }
@@ -624,249 +617,185 @@ function esc(s) {
   return d.innerHTML;
 }
 
-// Printer detection - Conectar al agente local
-const AGENT_URL = 'http://127.0.0.1:3001';
-let agentConnected = false;
-
-async function detectPrinters() {
-  try {
-    const btn = event.target;
-    btn.disabled = true;
-    btn.textContent = '🔄 Buscando...';
-
-    const toastId = toast('🔗 Conectando con agente local en 127.0.0.1:3001...', 'info');
-
-    // Primero, verificar si el agente está disponible
-    const statusRes = await fetch(`${AGENT_URL}/api/status`, { mode: 'cors' });
-    if (!statusRes.ok) throw new Error('Agente no disponible');
-
-    const status = await statusRes.json();
-    agentConnected = true;
-
-    toast('✅ Conectado con agente local', 'success');
-
-    const select = document.getElementById('printerSelect');
-    select.innerHTML = '<option value="">-- Selecciona una impresora --</option>';
-
-    if (status.printers && status.printers.length > 0) {
-      status.printers.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.ip;
-        opt.textContent = `${p.ip}:${p.port} (online)`;
-        select.appendChild(opt);
-      });
-
-      // Auto-seleccionar primera impresora
-      if (select.children.length > 1) {
-        select.children[1].selected = true;
-        selectPrinter();
-      }
-
-      toast(`✅ ${status.printers.length} impresora(s) disponible(s)`, 'success');
-    } else {
-      toast('⚠️ Agente conectado pero sin impresoras en la red.\n\nVerifica:\n1. Impresoras ZEBRA encendidas\n2. Conectadas al puerto 9100', 'error');
-    }
-
-    btn.disabled = false;
-    btn.textContent = '🔄 Buscar';
-  } catch (err) {
-    agentConnected = false;
-    event.target.disabled = false;
-    event.target.textContent = '🔄 Buscar';
-
-    let errorMsg = '❌ No se puede conectar con el agente local.\n\n';
-    if (err.message.includes('Failed to fetch')) {
-      errorMsg += '⚠️ Error de conexión (CORS/Red)\n\n';
-      errorMsg += '✓ Verifica:\n';
-      errorMsg += '  1. ¿Ejecutaste zebra-agent.exe en PC #2?\n';
-      errorMsg += '  2. ¿Sigue la ventana del agente abierta?\n';
-      errorMsg += '  3. ¿El agente dice "Agente ejecutándose"?\n\n';
-      errorMsg += '💡 Intenta:\n';
-      errorMsg += '  - Cierra y reabre zebra-agent.exe\n';
-      errorMsg += '  - Recarga esta página (Ctrl+F5)';
-    } else {
-      errorMsg += err.message;
-    }
-
-    toast(errorMsg, 'error');
-  }
-}
-
-async function selectPrinter() {
-  const ip = document.getElementById('printerSelect').value;
-  if (!ip) return;
-
-  try {
-    const res = await fetch(`${AGENT_URL}/api/select`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ip, port: 9100 })
-    });
-    const data = await res.json();
-    if (res.ok) {
-      document.getElementById('printerIp').value = ip;
-      toast(`✅ Impresora seleccionada: ${ip}`, 'success');
-    }
-  } catch (err) {
-    toast('Error al seleccionar impresora: ' + err.message, 'error');
-  }
-}
-
-// Init
-window.addEventListener('load', () => {
-  detectPrinters();
-  loadDesigns();
-});
-
-// === EDITOR DE DISEÑOS ===
+// ===== FASE 3: MÁRGENES Y DISEÑOS =====
 let currentDesign = null;
+let currentDesignMargins = null;
 
+const DOTS_PER_MM = 8;
+function mmToDots(mm) { return Math.round(mm * DOTS_PER_MM); }
+function dotsToMm(dots) { return (dots / DOTS_PER_MM).toFixed(1); }
+
+// Cargar diseños al iniciar
 async function loadDesigns() {
   try {
     const res = await fetch('/api/designs');
     const designList = await res.json();
     const select = document.getElementById('designSelect');
     select.innerHTML = '<option value="">-- Selecciona diseño --</option>';
+
     designList.forEach(d => {
       const opt = document.createElement('option');
       opt.value = d.id;
       opt.textContent = `${d.name}${d.active ? ' ★' : ''}`;
       select.appendChild(opt);
     });
+
+    if (designList.length > 0) {
+      const active = designList.find(d => d.active);
+      if (active) {
+        select.value = active.id;
+        updateDesignPreview();
+      }
+    }
   } catch (err) {
     console.error('Error cargando diseños:', err);
+    toast('Error al cargar diseños', 'error');
   }
 }
 
-async function openDesignEditor() {
+function updateDesignPreview() {
   const designId = document.getElementById('designSelect').value;
   if (!designId) {
+    document.getElementById('designPreviewContainer').style.display = 'none';
+    document.getElementById('btnEditMargins').disabled = true;
+    currentDesign = null;
+    return;
+  }
+
+  fetch('/api/designs')
+    .then(r => r.json())
+    .then(designs => {
+      currentDesign = designs.find(d => d.id === designId);
+      if (currentDesign) {
+        currentDesignMargins = {
+          marginTop: currentDesign.marginTop || 5,
+          marginBottom: currentDesign.marginBottom || 5,
+          marginLeft: currentDesign.marginLeft || 5,
+          marginRight: currentDesign.marginRight || 5,
+          pageWidthMm: (currentDesign.pageWidthMm || currentDesign.pageWidth / DOTS_PER_MM),
+          pageHeightMm: (currentDesign.pageHeightMm || currentDesign.pageHeight / DOTS_PER_MM)
+        };
+        drawDesignPreview();
+        document.getElementById('designPreviewContainer').style.display = 'block';
+        document.getElementById('btnEditMargins').disabled = false;
+      }
+    })
+    .catch(err => {
+      console.error('Error:', err);
+      toast('Error al cargar diseño', 'error');
+    });
+}
+
+function drawDesignPreview() {
+  if (!currentDesignMargins) return;
+
+  const svg = document.getElementById('designPreview');
+  const { marginTop, marginBottom, marginLeft, marginRight, pageWidthMm, pageHeightMm } = currentDesignMargins;
+
+  // Escalado para que quepa en 400x200
+  const scale = Math.min(400 / pageWidthMm, 200 / pageHeightMm, 3);
+
+  svg.innerHTML = `
+    <!-- Fondo página -->
+    <rect width="${pageWidthMm * scale}" height="${pageHeightMm * scale}" fill="#ffffff" stroke="#999" stroke-width="1"/>
+
+    <!-- Márgenes (área gris) -->
+    <rect x="${marginLeft * scale}" y="${marginTop * scale}"
+          width="${(pageWidthMm - marginLeft - marginRight) * scale}"
+          height="${(pageHeightMm - marginTop - marginBottom) * scale}"
+          fill="#f0f0f0" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2,2"/>
+
+    <!-- Indicadores de márgenes -->
+    <g font-size="10" fill="#666">
+      <text x="5" y="15">T:${marginTop}mm</text>
+      <text x="5" y="${pageHeightMm * scale - 5}">B:${marginBottom}mm</text>
+      <text x="${pageWidthMm * scale - 40}" y="15">R:${marginRight}mm</text>
+    </g>
+
+    <!-- Texto informativo -->
+    <text x="${pageWidthMm * scale / 2}" y="${pageHeightMm * scale / 2}"
+          text-anchor="middle" font-size="12" fill="#999">
+      ${pageWidthMm}×${pageHeightMm}mm
+    </text>
+  `;
+}
+
+function openMarginsModal() {
+  if (!currentDesign) {
     toast('Selecciona un diseño primero', 'error');
     return;
   }
 
-  try {
-    const res = await fetch('/api/designs');
-    const designs = await res.json();
-    currentDesign = JSON.parse(JSON.stringify(designs.find(d => d.id === designId)));
+  // Cargar valores actuales
+  document.getElementById('marginTop').value = currentDesignMargins.marginTop || 5;
+  document.getElementById('marginBottom').value = currentDesignMargins.marginBottom || 5;
+  document.getElementById('marginLeft').value = currentDesignMargins.marginLeft || 5;
+  document.getElementById('marginRight').value = currentDesignMargins.marginRight || 5;
+  document.getElementById('pageWidthMm').value = currentDesignMargins.pageWidthMm || 101.6;
+  document.getElementById('pageHeightMm').value = currentDesignMargins.pageHeightMm || 50.8;
 
-    if (!currentDesign) throw new Error('Diseño no encontrado');
-
-    renderElementsTable();
-    updatePreview();
-    document.getElementById('designEditorModal').classList.add('active');
-  } catch (err) {
-    toast('Error: ' + err.message, 'error');
-  }
-}
-
-function closeDesignEditor() {
-  document.getElementById('designEditorModal').classList.remove('active');
-  currentDesign = null;
-}
-
-function renderElementsTable() {
-  if (!currentDesign) return;
-  const tbody = document.getElementById('elementsTableBody');
-  tbody.innerHTML = currentDesign.elements.map(el => `
-    <tr style="border-bottom: 1px solid #e5e7eb;">
-      <td style="padding: 8px; font-weight: 500;">${el.label}</td>
-      <td style="padding: 8px;"><input type="number" value="${el.x}" style="width: 50px; padding: 4px; border: 1px solid #d1d5db; border-radius: 4px;" onchange="updateElement(${el.id}, 'x', this.value)"></td>
-      <td style="padding: 8px;"><input type="number" value="${el.y}" style="width: 50px; padding: 4px; border: 1px solid #d1d5db; border-radius: 4px;" onchange="updateElement(${el.id}, 'y', this.value)"></td>
-      <td style="padding: 8px;"><button class="btn btn-sm btn-outline" onclick="editElement(${el.id})">✏️</button></td>
-      <td style="padding: 8px;"><button class="btn btn-sm btn-danger" onclick="deleteElement(${el.id})">🗑️</button></td>
-    </tr>
-  `).join('');
-}
-
-function addNewElement() {
-  if (!currentDesign) return;
-  const newId = Math.max(...currentDesign.elements.map(e => e.id), 0) + 1;
-  currentDesign.elements.push({
-    id: newId,
-    type: 'text',
-    label: `Elemento ${newId}`,
-    field: `field_${newId}`,
-    x: 30,
-    y: 30 + (currentDesign.elements.length * 35),
-    font: 'A0N',
-    fontSize: '24,24',
-    order: currentDesign.elements.length + 1
+  // Event listeners para actualizar preview en tiempo real
+  ['marginTop', 'marginBottom', 'marginLeft', 'marginRight', 'pageWidthMm', 'pageHeightMm'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updateMarginsPreview);
   });
-  renderElementsTable();
-  updatePreview();
+
+  updateMarginsPreview();
+  document.getElementById('marginsModal').classList.add('active');
 }
 
-function updateElement(id, prop, value) {
+function closeMarginsModal() {
+  document.getElementById('marginsModal').classList.remove('active');
+}
+
+function updateMarginsPreview() {
+  const marginTop = parseFloat(document.getElementById('marginTop').value) || 0;
+  const marginBottom = parseFloat(document.getElementById('marginBottom').value) || 0;
+  const marginLeft = parseFloat(document.getElementById('marginLeft').value) || 0;
+  const marginRight = parseFloat(document.getElementById('marginRight').value) || 0;
+  const pageWidthMm = parseFloat(document.getElementById('pageWidthMm').value) || 101.6;
+  const pageHeightMm = parseFloat(document.getElementById('pageHeightMm').value) || 50.8;
+
+  // Mostrar conversión a dots
+  const info = `Ancho: ${pageWidthMm}mm = ${mmToDots(pageWidthMm)} dots | Alto: ${pageHeightMm}mm = ${mmToDots(pageHeightMm)} dots`;
+  document.getElementById('conversionInfo').textContent = info;
+
+  // Dibujar preview
+  const svg = document.getElementById('marginsPreview');
+  const scale = Math.min(600 / pageWidthMm, 180 / pageHeightMm, 3);
+
+  svg.innerHTML = `
+    <rect width="${pageWidthMm * scale}" height="${pageHeightMm * scale}" fill="#ffffff" stroke="#999" stroke-width="2"/>
+    <rect x="${marginLeft * scale}" y="${marginTop * scale}"
+          width="${Math.max(1, (pageWidthMm - marginLeft - marginRight) * scale)}"
+          height="${Math.max(1, (pageHeightMm - marginTop - marginBottom) * scale)}"
+          fill="#e3f2fd" stroke="#1a56db" stroke-width="2" stroke-dasharray="4,4"/>
+
+    <text x="${10}" y="${15}" font-size="12" fill="#666">
+      T: ${marginTop}mm = ${mmToDots(marginTop)} dots
+    </text>
+    <text x="${10}" y="${pageHeightMm * scale - 5}" font-size="12" fill="#666">
+      B: ${marginBottom}mm
+    </text>
+    <text x="${pageWidthMm * scale - 120}" y="${15}" font-size="12" fill="#666">
+      R: ${marginRight}mm
+    </text>
+    <text x="${pageWidthMm * scale / 2}" y="${pageHeightMm * scale / 2 + 20}"
+          text-anchor="middle" font-size="11" fill="#999">
+      Área de trabajo: ${(pageWidthMm - marginLeft - marginRight).toFixed(1)}×${(pageHeightMm - marginTop - marginBottom).toFixed(1)}mm
+    </text>
+  `;
+}
+
+async function saveMarginsChanges() {
   if (!currentDesign) return;
-  const el = currentDesign.elements.find(e => e.id === id);
-  if (el) {
-    el[prop] = isNaN(value) ? value : parseInt(value);
-    updatePreview();
-  }
-}
 
-function editElement(id) {
-  if (!currentDesign) return;
-  const el = currentDesign.elements.find(e => e.id === id);
-  if (!el) return;
+  const marginTop = parseFloat(document.getElementById('marginTop').value) || 5;
+  const marginBottom = parseFloat(document.getElementById('marginBottom').value) || 5;
+  const marginLeft = parseFloat(document.getElementById('marginLeft').value) || 5;
+  const marginRight = parseFloat(document.getElementById('marginRight').value) || 5;
+  const pageWidthMm = parseFloat(document.getElementById('pageWidthMm').value) || 101.6;
+  const pageHeightMm = parseFloat(document.getElementById('pageHeightMm').value) || 50.8;
 
-  const newLabel = prompt('Nombre:', el.label);
-  if (newLabel !== null) el.label = newLabel;
-
-  const newField = prompt('Campo (codigosenasa, qr, etc):', el.field);
-  if (newField !== null) el.field = newField;
-
-  if (el.type === 'text') {
-    const newSize = prompt('Tamaño (ej: 24,24):', el.fontSize);
-    if (newSize !== null) el.fontSize = newSize;
-  }
-
-  renderElementsTable();
-  updatePreview();
-}
-
-function deleteElement(id) {
-  if (!currentDesign || !confirm('¿Eliminar?')) return;
-  currentDesign.elements = currentDesign.elements.filter(e => e.id !== id);
-  renderElementsTable();
-  updatePreview();
-}
-
-function updatePreview() {
-  if (!currentDesign || !state.data.length) {
-    document.getElementById('previewZPL').textContent = 'Carga un Excel primero...';
-    return;
-  }
-  const record = state.data[0];
-  const zpl = generateZPLFromDesign(record, currentDesign);
-  document.getElementById('previewZPL').textContent = zpl;
-}
-
-function generateZPLFromDesign(record, design) {
-  let zpl = `^XA\n^CI28\n^PW812\n^LL406\n`;
-  design.elements.forEach(el => {
-    if (el.type === 'text') {
-      const value = String(record[el.field] || el.field);
-      const [w, h] = el.fontSize.split(',');
-      zpl += `^FO${el.x},${el.y}^A0N,${w},${h}^FD${value}^FS\n`;
-    } else if (el.type === 'qr') {
-      const value = String(record[el.field] || el.field);
-      zpl += `^FO${el.x},${el.y}^BQN,2,5^FDMA,${value}^FS\n`;
-    }
-  });
-  zpl += `^PQ1\n^XZ`;
-  return zpl;
-}
-
-function toggleDeveloperMode() {
-  const text = document.getElementById('previewZPL').textContent;
-  const modal = prompt('Edita ZPL (avanzado):', text);
-  if (modal !== null) document.getElementById('previewZPL').textContent = modal;
-}
-
-async function saveDesignChanges() {
-  if (!currentDesign) return;
   try {
     const res = await fetch(`/api/designs/${currentDesign.id}`, {
       method: 'PUT',
@@ -874,17 +803,34 @@ async function saveDesignChanges() {
       body: JSON.stringify({
         name: currentDesign.name,
         description: currentDesign.description,
-        elements: currentDesign.elements
+        elements: currentDesign.elements,
+        marginTop,
+        marginBottom,
+        marginLeft,
+        marginRight,
+        pageWidth: mmToDots(pageWidthMm),
+        pageHeight: mmToDots(pageHeightMm),
+        pageWidthMm,
+        pageHeightMm
       })
     });
+
     if (res.ok) {
-      toast('✅ Diseño guardado', 'success');
-      closeDesignEditor();
-    } else throw new Error('Error guardando');
+      toast('✅ Márgenes guardados correctamente', 'success');
+      closeMarginsModal();
+      updateDesignPreview();
+    } else {
+      throw new Error('Error al guardar');
+    }
   } catch (err) {
     toast('Error: ' + err.message, 'error');
   }
 }
+
+// Cargar diseños cuando se carga la página
+window.addEventListener('load', () => {
+  loadDesigns();
+});
 </script>
 </body>
 </html>
