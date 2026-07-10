@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portal Zebra - Impresión de Etiquetas</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --primary: #1a56db;
+      --primary-hover: #1e40af;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-500: #6b7280;
+      --gray-700: #374151;
+      --gray-900: #111827;
+    }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--gray-100); color: var(--gray-900); }
+
+    .header {
+      background: linear-gradient(135deg, #1e3a5f 0%, #1a56db 100%);
+      color: white; padding: 16px 32px; display: flex; align-items: center; gap: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.15);
+    }
+    .header svg { width: 36px; height: 36px; }
+    .header h1 { font-size: 22px; font-weight: 600; }
+    .header .subtitle { font-size: 13px; opacity: .8; margin-top: 2px; }
+
+    .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+    .card {
+      background: white; border-radius: 12px; padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 20px;
+    }
+    .card h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .card h2 .icon { font-size: 20px; }
+
+    .upload-zone {
+      border: 2px dashed var(--gray-300); border-radius: 12px; padding: 48px;
+      text-align: center; cursor: pointer; transition: all .2s;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: var(--primary); background: #eff6ff;
+    }
+    .upload-zone svg { width: 48px; height: 48px; color: var(--gray-500); margin-bottom: 12px; }
+    .upload-zone p { color: var(--gray-500); margin-top: 8px; font-size: 14px; }
+    .upload-zone .main-text { font-size: 16px; font-weight: 500; color: var(--gray-700); }
+
+    .config-row {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px; margin-bottom: 16px;
+    }
+    .form-group label { display: block; font-size: 13px; font-weight: 500; color: var(--gray-700); margin-bottom: 4px; }
+    .form-group input, .form-group select {
+      width: 100%; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: 8px;
+      font-size: 14px; outline: none; transition: border-color .2s;
+    }
+    .form-group input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
+
+    .toolbar {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+    }
+    .toolbar .search-box {
+      flex: 1; min-width: 200px; padding: 8px 12px 8px 36px;
+      border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236b7280' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242.656a5 5 0 1 1 0-10 5 5 0 0 1 0 10z'/%3E%3C/svg%3E") 10px center no-repeat;
+      outline: none;
+    }
+    .toolbar .search-box:focus { border-color: var(--primary); }
+
+    .btn {
+      padding: 8px 16px; border: none; border-radius: 8px; font-size: 14px;
+      font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+      transition: all .15s;
+    }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-danger:hover:not(:disabled) { background: #b91c1c; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-success:hover:not(:disabled) { background: #15803d; }
+    .btn-outline { background: white; color: var(--gray-700); border: 1px solid var(--gray-300); }
+    .btn-outline:hover:not(:disabled) { background: var(--gray-50); }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+    .stats {
+      display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .stat-badge {
+      padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 500;
+    }
+    .stat-badge.total { background: #dbeafe; color: #1e40af; }
+    .stat-badge.selected { background: #dcfce7; color: #166534; }
+    .stat-badge.filtered { background: #fef3c7; color: #92400e; }
+
+    .table-wrapper { overflow-x: auto; border-radius: 8px; border: 1px solid var(--gray-200); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead { background: var(--gray-50); position: sticky; top: 0; z-index: 1; }
+    th { padding: 10px 12px; text-align: left; font-weight: 600; color: var(--gray-700); border-bottom: 2px solid var(--gray-200); white-space: nowrap; }
+    td { padding: 8px 12px; border-bottom: 1px solid var(--gray-100); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    tr:hover td { background: #f0f7ff; }
+    tr.selected td { background: #dbeafe; }
+    th:first-child, td:first-child { width: 40px; text-align: center; }
+
+    .pagination {
+      display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 16px;
+    }
+    .pagination button { padding: 6px 12px; }
+
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5);
+      z-index: 100; justify-content: center; align-items: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: white; border-radius: 16px; padding: 24px; width: 90%; max-width: 700px;
+      max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    }
+    .modal h3 { font-size: 18px; margin-bottom: 16px; }
+    .modal pre {
+      background: var(--gray-900); color: #a5f3fc; padding: 16px; border-radius: 8px;
+      font-size: 12px; overflow-x: auto; white-space: pre; font-family: 'Consolas', monospace;
+    }
+    .modal-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+
+    .toast-container { position: fixed; top: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+      padding: 12px 20px; border-radius: 10px; color: white; font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.2); animation: slideIn .3s ease;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .toast.success { background: var(--success); }
+    .toast.error { background: var(--danger); }
+    .toast.info { background: var(--primary); }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    .file-info { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; margin-bottom: 16px; }
+    .file-info .name { font-weight: 600; color: #166534; }
+    .file-info .detail { font-size: 13px; color: var(--gray-500); }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--gray-500); }
+    .empty-state svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: .4; }
+
+    .print-progress { margin-top: 12px; }
+    .progress-bar { height: 8px; background: var(--gray-200); border-radius: 4px; overflow: hidden; }
+    .progress-bar .fill { height: 100%; background: var(--primary); transition: width .3s; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <svg viewBox="0 0 36 36" fill="none"><rect width="36" height="36" rx="8" fill="rgba(255,255,255,.15)"/><path d="M8 12h20v2H8zm0 5h20v2H8zm0 5h14v2H8zm18 0h4v6h-4z" fill="white"/></svg>
+  <div>
+    <h1>Portal de Impresión Zebra</h1>
+    <div class="subtitle">Zebra ZT231 - Etiquetas de Arándano</div>
+  </div>
+</div>
+
+<div class="container">
+  <!-- Config -->
+  <div class="card">
+    <h2><span class="icon">&#9881;</span> Configuración de Impresora</h2>
+    <div class="config-row">
+      <div class="form-group">
+        <label>IP de Impresora</label>
+        <input type="text" id="printerIp" value="192.168.1.24">
+      </div>
+      <div class="form-group">
+        <label>Puerto</label>
+        <input type="number" id="printerPort" value="9100">
+      </div>
+      <div class="form-group">
+        <label>Copias por etiqueta</label>
+        <input type="number" id="copies" value="1" min="1" max="99">
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload -->
+  <div class="card">
+    <h2><span class="icon">&#128196;</span> Cargar Excel</h2>
+    <div class="upload-zone" id="uploadZone">
+      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2"><path d="M24 32V16m0 0l-8 8m8-8l8 8"/><rect x="6" y="6" width="36" height="36" rx="4"/></svg>
+      <p class="main-text">Arrastra tu archivo Excel aquí o haz clic para seleccionar</p>
+      <p>Formatos aceptados: .xlsx, .xls</p>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" hidden>
+    <div id="fileInfo" class="file-info" style="display:none">
+      <span class="name" id="fileName"></span>
+      <span class="detail" id="fileDetail"></span>
+      <button class="btn btn-sm btn-outline" onclick="clearData()">Quitar</button>
+    </div>
+  </div>
+
+  <!-- Data Table -->
+  <div class="card" id="dataSection" style="display:none">
+    <h2><span class="icon">&#128202;</span> Registros</h2>
+
+    <div class="stats">
+      <span class="stat-badge total" id="statTotal"></span>
+      <span class="stat-badge selected" id="statSelected">0 seleccionados</span>
+      <span class="stat-badge filtered" id="statFiltered" style="display:none"></span>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" class="search-box" id="searchBox" placeholder="Buscar por código, nombre, fecha...">
+      <button class="btn btn-outline" onclick="selectAll()">Seleccionar todo</button>
+      <button class="btn btn-outline" onclick="deselectAll()">Deseleccionar</button>
+      <button class="btn btn-success" onclick="printSelected()" id="btnPrintSelected" disabled>
+        &#9113; Imprimir seleccionados
+      </button>
+      <button class="btn btn-primary" onclick="confirmPrintAll()">
+        &#9113; Imprimir TODOS
+      </button>
+    </div>
+
+    <div class="table-wrapper" style="max-height: 500px; overflow-y: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="checkAll" onchange="toggleAll(this.checked)"></th>
+            <th>#</th>
+            <th>Cod. SENASA</th>
+            <th>Cod. Trabajador</th>
+            <th>Nombre Trabajador</th>
+            <th>Turno</th>
+            <th>Lateral</th>
+            <th>Lote</th>
+            <th>Grupo Variedad</th>
+            <th>Fecha</th>
+            <th>Cod. Auxiliar</th>
+            <th>Nombre Auxiliar</th>
+            <th>Contador</th>
+            <th>QR</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="pagination" id="pagination"></div>
+  </div>
+</div>
+
+<!-- ZPL Preview Modal -->
+<div class="modal-overlay" id="zplModal">
+  <div class="modal">
+    <h3>Vista previa ZPL</h3>
+    <pre id="zplContent"></pre>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cerrar</button>
+      <button class="btn btn-primary" onclick="copyZPL()">Copiar ZPL</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Print All Modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <h3>Confirmar impresión masiva</h3>
+    <p id="confirmMsg"></p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeConfirmModal()">Cancelar</button>
+      <button class="btn btn-danger" onclick="printAll()">Confirmar e Imprimir</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<script>
+const state = {
+  data: [],
+  selected: new Set(),
+  page: 1,
+  totalPages: 1,
+  total: 0,
+  search: ''
+};
+
+// Upload handling
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files.length) uploadFile(fileInput.files[0]); });
+
+async function uploadFile(file) {
+  const form = new FormData();
+  form.append('excel', file);
+
+  try {
+    toast('Cargando archivo...', 'info');
+    const res = await fetch('/api/upload', { method: 'POST', body: form });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error);
+
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('fileDetail').textContent = `${data.total} registros - Hoja: ${data.sheetName}`;
+    document.getElementById('fileInfo').style.display = 'flex';
+    uploadZone.style.display = 'none';
+    document.getElementById('statTotal').textContent = `${data.total} registros`;
+
+    state.selected.clear();
+    state.page = 1;
+    state.search = '';
+    document.getElementById('searchBox').value = '';
+
+    loadData();
+    document.getElementById('dataSection').style.display = 'block';
+    toast(`${data.total} registros cargados correctamente`, 'success');
+  } catch (err) {
+    toast('Error: ' + err.message, 'error');
+  }
+}
+
+async function loadData() {
+  const res = await fetch(`/api/data?page=${state.page}&limit=50&search=${encodeURIComponent(state.search)}`);
+  const result = await res.json();
+
+  state.data = result.data;
+  state.total = result.total;
+  state.totalPages = result.totalPages;
+
+  if (state.search) {
+    document.getElementById('statFiltered').textContent = `${result.total} encontrados`;
+    document.getElementById('statFiltered').style.display = '';
+  } else {
+    document.getElementById('statFiltered').style.display = 'none';
+  }
+
+  renderTable();
+  renderPagination();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  if (!state.data.length) {
+    tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:40px;color:#6b7280">No se encontraron registros</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = state.data.map(row => {
+    const checked = state.selected.has(row.id) ? 'checked' : '';
+    const selClass = state.selected.has(row.id) ? 'selected' : '';
+    return `<tr class="${selClass}" onclick="toggleRow(${row.id}, event)">
+      <td><input type="checkbox" ${checked} onchange="toggleSelect(${row.id})" onclick="event.stopPropagation()"></td>
+      <td>${row.id}</td>
+      <td>${esc(row.codigosenasa)}</td>
+      <td>${esc(row.codigotrabajador)}</td>
+      <td title="${esc(row.nombretrabajador)}">${esc(row.nombretrabajador)}</td>
+      <td>${esc(row.turno)}</td>
+      <td>${esc(row.lateral)}</td>
+      <td>${esc(row.lote)}</td>
+      <td>${esc(row.grupoVariedad)}</td>
+      <td>${esc(row.fecha)}</td>
+      <td>${esc(row.codigoauxiliar)}</td>
+      <td title="${esc(row.nombreauxiliar)}">${esc(row.nombreauxiliar)}</td>
+      <td>${esc(row.contador)}</td>
+      <td title="${esc(row.qr)}" style="max-width:120px">${esc(row.qr).substring(0,20)}...</td>
+      <td><button class="btn btn-sm btn-outline" onclick="previewZPL(${row.id});event.stopPropagation()">ZPL</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderPagination() {
+  const div = document.getElementById('pagination');
+  if (state.totalPages <= 1) { div.innerHTML = ''; return; }
+
+  let html = `<button class="btn btn-sm btn-outline" onclick="goPage(${state.page - 1})" ${state.page === 1 ? 'disabled' : ''}>&laquo; Anterior</button>`;
+  html += `<span style="font-size:13px;color:#6b7280">Página ${state.page} de ${state.totalPages}</span>`;
+  html += `<button class="btn btn-sm btn-outline" onclick="goPage(${state.page + 1})" ${state.page === state.totalPages ? 'disabled' : ''}>Siguiente &raquo;</button>`;
+  div.innerHTML = html;
+}
+
+function goPage(p) {
+  if (p < 1 || p > state.totalPages) return;
+  state.page = p;
+  loadData();
+}
+
+function toggleSelect(id) {
+  if (state.selected.has(id)) state.selected.delete(id);
+  else state.selected.add(id);
+  updateSelection();
+}
+
+function toggleRow(id, e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+  toggleSelect(id);
+}
+
+function toggleAll(checked) {
+  state.data.forEach(r => {
+    if (checked) state.selected.add(r.id);
+    else state.selected.delete(r.id);
+  });
+  updateSelection();
+}
+
+function selectAll() {
+  state.data.forEach(r => state.selected.add(r.id));
+  updateSelection();
+}
+
+function deselectAll() {
+  state.selected.clear();
+  updateSelection();
+}
+
+function updateSelection() {
+  document.getElementById('statSelected').textContent = `${state.selected.size} seleccionados`;
+  document.getElementById('btnPrintSelected').disabled = state.selected.size === 0;
+  renderTable();
+}
+
+async function previewZPL(id) {
+  const res = await fetch('/api/preview-zpl', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
+  const data = await res.json();
+  document.getElementById('zplContent').textContent = data.zpl;
+  document.getElementById('zplModal').classList.add('active');
+}
+
+function closeModal() { document.getElementById('zplModal').classList.remove('active'); }
+
+function copyZPL() {
+  navigator.clipboard.writeText(document.getElementById('zplContent').textContent);
+  toast('ZPL copiado al portapapeles', 'success');
+}
+
+function getConfig() {
+  return {
+    printerIp: document.getElementById('printerIp').value,
+    printerPort: parseInt(document.getElementById('printerPort').value),
+    copies: parseInt(document.getElementById('copies').value) || 1
+  };
+}
+
+async function printSelected() {
+  const config = getConfig();
+  const ids = Array.from(state.selected);
+
+  try {
+    toast(`Enviando ${ids.length} etiquetas a impresora...`, 'info');
+    const res = await fetch('/api/print', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, ...config })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    toast(`${data.printed} etiquetas enviadas (${data.copies} copia(s) c/u)`, 'success');
+  } catch (err) {
+    toast('Error: ' + err.message, 'error');
+  }
+}
+
+function confirmPrintAll() {
+  document.getElementById('confirmMsg').textContent =
+    `¿Está seguro de imprimir TODAS las ${state.total} etiquetas? Esto enviará ${state.total} etiquetas a la impresora.`;
+  document.getElementById('confirmModal').classList.add('active');
+}
+
+function closeConfirmModal() { document.getElementById('confirmModal').classList.remove('active'); }
+
+async function printAll() {
+  closeConfirmModal();
+  const config = getConfig();
+
+  try {
+    toast(`Enviando ${state.total} etiquetas a impresora...`, 'info');
+    const res = await fetch('/api/print-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    toast(`${data.printed} etiquetas enviadas (${data.copies} copia(s) c/u)`, 'success');
+  } catch (err) {
+    toast('Error: ' + err.message, 'error');
+  }
+}
+
+function clearData() {
+  state.data = [];
+  state.selected.clear();
+  document.getElementById('dataSection').style.display = 'none';
+  document.getElementById('fileInfo').style.display = 'none';
+  document.getElementById('uploadZone').style.display = '';
+  fileInput.value = '';
+}
+
+let searchTimer;
+document.getElementById('searchBox').addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    state.search = e.target.value;
+    state.page = 1;
+    loadData();
+  }, 300);
+});
+
+function toast(msg, type) {
+  const div = document.createElement('div');
+  div.className = `toast ${type}`;
+  div.innerHTML = msg;
+  document.getElementById('toasts').appendChild(div);
+  setTimeout(() => div.remove(), 4000);
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>
