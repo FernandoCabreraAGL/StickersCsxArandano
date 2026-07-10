@@ -157,7 +157,7 @@
   <svg viewBox="0 0 36 36" fill="none"><rect width="36" height="36" rx="8" fill="rgba(255,255,255,.15)"/><path d="M8 12h20v2H8zm0 5h20v2H8zm0 5h14v2H8zm18 0h4v6h-4z" fill="white"/></svg>
   <div>
     <h1>Portal de Impresión Zebra</h1>
-    <div class="subtitle">Zebra ZT231 - Etiquetas de Arándano</div>
+    <div class="subtitle">Zebra ZT231 - Etiquetas de Arándano - Versión 1.0.0</div>
     <div class="subtitle">Ing. Fernando Cabrera - Agualima S.A.C.</div>
   </div>
 </div>
@@ -630,9 +630,11 @@ let agentConnected = false;
 
 async function detectPrinters() {
   try {
-    const btn = event.target;
-    btn.disabled = true;
-    btn.textContent = '🔄 Buscando...';
+    const btn = document.getElementById('detectBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '🔄 Buscando...';
+    }
 
     const toastId = toast('🔗 Conectando con agente local en 127.0.0.1:3001...', 'info');
 
@@ -667,12 +669,17 @@ async function detectPrinters() {
       toast('⚠️ Agente conectado pero sin impresoras en la red.\n\nVerifica:\n1. Impresoras ZEBRA encendidas\n2. Conectadas al puerto 9100', 'error');
     }
 
-    btn.disabled = false;
-    btn.textContent = '🔄 Buscar';
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🔄 Buscar';
+    }
   } catch (err) {
     agentConnected = false;
-    event.target.disabled = false;
-    event.target.textContent = '🔄 Buscar';
+    const btn = document.getElementById('detectBtn');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🔄 Buscar';
+    }
 
     let errorMsg = '❌ No se puede conectar con el agente local.\n\n';
     if (err.message.includes('Failed to fetch')) {
