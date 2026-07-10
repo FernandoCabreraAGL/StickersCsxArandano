@@ -5,11 +5,25 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "agent": "node agent.js",
+    "build-agent": "pkg agent.js --targets node18-win-x64 --output zebra-agent.exe --compress Brotli"
+  },
+  "pkg": {
+    "scripts": [
+      "agent.js"
+    ],
+    "targets": [
+      "node18-win-x64"
+    ],
+    "output": "zebra-agent.exe"
   },
   "dependencies": {
     "express": "^4.18.2",
     "multer": "^1.4.5-lts.1",
     "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
   }
 }

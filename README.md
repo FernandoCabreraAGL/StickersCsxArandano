@@ -1,105 +1,103 @@
 # Portal de Impresión Zebra ZT231
 
-Portal web para cargar archivos Excel e imprimir etiquetas en impresoras Zebra ZT231.
+Portal web + Agente Local para cargar archivos Excel e imprimir etiquetas en impresoras Zebra ZT231.
+
+**Arquitectura:** Render.com (Portal Web) + Agente Local .exe (PC #2)
 
 ## Características
 
 - ✅ Carga de archivos Excel (.xlsx, .xls)
 - ✅ Vista previa de datos en tiempo real
 - ✅ Selección individual o masiva de registros
+- ✅ Detección automática de impresoras ZEBRA en la red local
 - ✅ Generación de códigos QR automáticos
 - ✅ Impresión en Zebra ZT231 vía ZPL
-- ✅ Configuración flexible de impresora
+- ✅ Funciona aunque PC #1 esté apagada
 
-## Despliegue en Render.com (Recomendado)
+## Setup Rápido
 
-### Paso 1: Preparar GitHub
-1. Sube este proyecto a un repositorio en GitHub
-2. Asegúrate de tener `.gitignore` configurado (ya está)
+### PC #1: Desplegar Portal en Render.com
 
-### Paso 2: Crear cuenta en Render.com
-1. Ve a https://render.com
-2. Crea una cuenta (gratuita)
-3. Conecta tu repositorio de GitHub
+1. **Preparar GitHub** - Tu código ya está en: https://github.com/FernandoCabreraAGL/StickersCsxArandano
+2. **Ir a** https://render.com y conectar el repositorio
+3. **Crear Web Service** con:
+   - Name: `zebra-label-portal`
+   - Environment: `Node`
+   - Build Command: `npm install`
+   - Start Command: `npm start`
+4. **Obtener URL** → Algo como `https://zebra-label-portal.onrender.com`
 
-### Paso 3: Desplegar
-1. En Render.com, haz clic en "New" → "Web Service"
-2. Selecciona tu repositorio
-3. Configura:
-   - **Name**: `zebra-label-portal`
-   - **Environment**: `Node`
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
-4. En "Environment Variables", agrega:
-   - `PRINTER_IP`: `192.168.1.24` (o tu IP de impresora)
-   - `PRINTER_PORT`: `9100`
-5. Haz clic en "Create Web Service"
+### PC #2: Instalar Agente Local
 
-### Paso 4: Acceder
-Una vez desplegado, obtendrás una URL como:
+1. **Descargar** `zebra-agent.exe` desde: https://github.com/FernandoCabreraAGL/StickersCsxArandano/releases
+2. **Ejecutar** - Doble clic en `zebra-agent.exe`
+3. **Esperar** - Debería decir:
+   ```
+   🖨️ Agente ejecutándose en http://127.0.0.1:3001
+   📋 Scan completado: X impresora(s) encontrada(s)
+   ✅ Impresora por defecto seleccionada: 192.168.1.24
+   ```
+4. **Abrir Portal** en navegador: `https://zebra-label-portal.onrender.com`
+
+## Cómo Funciona
+
 ```
-https://zebra-label-portal.onrender.com
+PC #2 (Bloqueada, sin instalar)
+├── Navegador Web
+│   └── Portal Render (https://zebra-label-portal.onrender.com)
+│       ├── Carga Excel
+│       ├── Selecciona registros
+│       └── Envía orden de impresión
+│           ↓
+├── Agente Local (.exe)
+│   ├── Detecta impresoras ZEBRA en red local
+│   ├── Recibe órdenes HTTP
+│   └── Envía ZPL a impresoras por TCP/IP 9100
+│       ↓
+└── Impresoras ZEBRA ZT231
+    └── Imprimen etiquetas
 ```
 
-Ambas PCs pueden acceder usando esta URL desde cualquier navegador.
+## Compilar Agente (Opcional)
 
-## Uso Local (Desarrollo)
+Si necesitas recompilar `zebra-agent.exe` después de cambios:
 
 ```bash
 npm install
-npm start
+npm run build-agent
 ```
 
-Abre `http://localhost:3000` en tu navegador.
+Genera: `zebra-agent.exe`
 
-## API Endpoints
+## Troubleshooting
 
-- `POST /api/upload` - Subir archivo Excel
-- `GET /api/data` - Obtener datos paginados
-- `POST /api/print` - Imprimir registros seleccionados
-- `POST /api/print-all` - Imprimir todos los registros
-- `POST /api/preview-zpl` - Previsualizar ZPL de un registro
+### "Agente local no disponible"
+- ¿Está ejecutando `zebra-agent.exe` en PC #2?
+- ¿Puerto 3001 no está bloqueado?
+- Revisa consola del agente para errores
 
-## Estructura de Excel Requerida
+### "No se encontraron impresoras"
+- Verifica que impresoras ZEBRA estén en puerto 9100
+- Prueba manualmente: `ping 192.168.1.24`
+- Reinicia el agente (Ctrl+C y ejecuta de nuevo)
 
-El archivo Excel debe contener las siguientes columnas:
+### Portal no carga desde Render
+- Espera 30 seg en primera carga (servidor free)
+- Verifica conexión a internet en PC #2
+- Recarga página (Ctrl+F5)
 
-| Columna | Descripción |
-|---------|-------------|
-| codigosenasa | Código SENASA |
-| codigotrabajador | Código del trabajador |
-| nombretrabajador | Nombre del trabajador |
-| turno | Turno de trabajo |
-| lateral | Lateral/Sección |
-| lote | Número de lote |
-| grupo variedad | Grupo y variedad de producto |
-| fecha | Fecha (formato YYYY-MM-DD) |
-| codigoauxiliar | Código del auxiliar |
-| nombreauxiliar | Nombre del auxiliar |
-| contador | Número secuencial |
-| qr | Código QR único |
+## Endpoints API
 
-## Notas de Impresión
+**Portal (Render):**
+- `POST /api/upload` - Subir Excel
+- `GET /api/data` - Obtener registros
+- `POST /api/preview-zpl` - Ver ZPL
 
-- La impresora debe estar en la red y accesible en `192.168.1.24:9100`
-- Si despliegas en Render, la impresora debe ser accesible desde internet o usar una VPN
-- Para desarrollo local sin impresora física, ignora los errores de conexión
-
-## Solución de Problemas
-
-### Error "Unexpected token '<'"
-- Significa que el servidor no está corriendo
-- Verifica que `npm start` se ejecutó correctamente
-- En Render, revisa los logs en el dashboard
-
-### Error "Failed to parse URL"
-- Asegúrate de estar accediendo por la URL correcta (no como archivo local)
-- Verifica que el servidor está respondiendo
-
-### Error de conexión con impresora
-- Verifica que la IP y puerto son correctos
-- Prueba la conectividad: `ping 192.168.1.24`
-- Revisa que la impresora esté encendida y en la red
+**Agente Local (Puerto 3001):**
+- `GET /api/status` - Estado del agente
+- `GET /api/detect` - Detectar impresoras
+- `POST /api/select` - Seleccionar impresora
+- `POST /api/print` - Enviar ZPL a impresora
 
 ## Licencia
 

@@ -4,11 +4,14 @@ const XLSX = require('xlsx');
 const net = require('net');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const PRINTER_IP = process.env.PRINTER_IP || '192.168.1.24';
 const PRINTER_PORT = process.env.PRINTER_PORT || 9100;
+
+let selectedPrinter = { ip: PRINTER_IP, port: PRINTER_PORT };
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -78,6 +81,69 @@ app.post('/api/upload', upload.single('excel'), (req, res) => {
   }
 });
 
+function scanNetwork(baseIp, port = 9100, timeout = 500) {
+  return new Promise((resolve) => {
+    const printers = [];
+    const lastOctet = baseIp.split('.').slice(0, 3).join('.');
+    const promises = [];
+
+    for (let i = 1; i <= 254; i++) {
+      const ip = `${lastOctet}.${i}`;
+      const promise = new Promise((resolve) => {
+        const client = new net.Socket();
+        client.setTimeout(timeout);
+        client.connect(port, ip, () => {
+          printers.push({ ip, port, status: 'online' });
+          client.destroy();
+          resolve();
+        });
+        client.on('error', () => resolve());
+        client.on('timeout', () => {
+          client.destroy();
+          resolve();
+        });
+      });
+      promises.push(promise);
+    }
+
+    Promise.all(promises).then(() => resolve(printers));
+  });
+}
+
+function getNetworkBaseIp() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    const addrs = interfaces[name];
+    for (const addr of addrs) {
+      if (addr.family === 'IPv4' && !addr.internal) {
+        return addr.address;
+      }
+    }
+  }
+  return '192.168.1.1';
+}
+
+app.get('/api/detect-printers', async (req, res) => {
+  try {
+    const baseIp = getNetworkBaseIp();
+    const printers = await scanNetwork(baseIp, 9100, 300);
+    res.json({ printers, currentIp: baseIp });
+  } catch (err) {
+    res.status(500).json({ error: 'Error detectando impresoras: ' + err.message });
+  }
+});
+
+app.post('/api/select-printer', (req, res) => {
+  const { ip, port } = req.body;
+  if (!ip) return res.status(400).json({ error: 'IP requerida' });
+  selectedPrinter = { ip, port: port || 9100 };
+  res.json({ success: true, printer: selectedPrinter });
+});
+
+app.get('/api/selected-printer', (req, res) => {
+  res.json(selectedPrinter);
+});
+
 app.get('/api/data', (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 50;
@@ -126,9 +192,9 @@ function generateZPL(record) {
 }
 
 app.post('/api/print', async (req, res) => {
-  const { ids, printerIp, printerPort, copies } = req.body;
-  const ip = printerIp || PRINTER_IP;
-  const port = printerPort || PRINTER_PORT;
+  const { ids, copies } = req.body;
+  const ip = selectedPrinter.ip;
+  const port = selectedPrinter.port;
   const numCopies = copies || 1;
 
   if (!ids || !ids.length) {
@@ -163,9 +229,9 @@ app.post('/api/preview-zpl', (req, res) => {
 });
 
 app.post('/api/print-all', async (req, res) => {
-  const { printerIp, printerPort, copies } = req.body;
-  const ip = printerIp || PRINTER_IP;
-  const port = printerPort || PRINTER_PORT;
+  const { copies } = req.body;
+  const ip = selectedPrinter.ip;
+  const port = selectedPrinter.port;
   const numCopies = copies || 1;
 
   if (!currentData.length) {
