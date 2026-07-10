@@ -588,30 +588,42 @@ function esc(s) {
   return d.innerHTML;
 }
 
-// Printer detection
+// Printer detection - Conectar al agente local
+const AGENT_URL = 'http://127.0.0.1:3001';
+
 async function detectPrinters() {
   try {
     const btn = event.target;
     btn.disabled = true;
     btn.textContent = '🔄 Buscando...';
-    toast('Escaneando red, esto puede tardar hasta 30 segundos...', 'info');
+    toast('Conectando con agente local...', 'info');
 
-    const res = await fetch('/api/detect-printers');
-    const result = await res.json();
+    // Primero, verificar si el agente está disponible
+    const statusRes = await fetch(`${AGENT_URL}/api/status`);
+    if (!statusRes.ok) throw new Error('Agente no disponible');
+
+    const status = await statusRes.json();
     const select = document.getElementById('printerSelect');
 
     select.innerHTML = '<option value="">-- Sin impresoras detectadas --</option>';
 
-    if (result.printers && result.printers.length > 0) {
-      result.printers.forEach(p => {
+    if (status.printers && status.printers.length > 0) {
+      status.printers.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.ip;
         opt.textContent = `${p.ip}:${p.port} (online)`;
         select.appendChild(opt);
       });
-      toast(`${result.printers.length} impresora(s) encontrada(s)`, 'success');
+
+      // Auto-seleccionar primera impresora
+      if (select.children.length > 1) {
+        select.children[1].selected = true;
+        selectPrinter();
+      }
+
+      toast(`${status.printers.length} impresora(s) encontrada(s)`, 'success');
     } else {
-      toast('No se encontraron impresoras ZEBRA. Verifica que estén en la red.', 'error');
+      toast('❌ Agente local no encontró impresoras. Verifica:\n1. Impresoras ZEBRA encendidas\n2. IP correcta (192.168.1.24)\n3. Puerto 9100 abierto', 'error');
     }
 
     btn.disabled = false;
@@ -619,7 +631,7 @@ async function detectPrinters() {
   } catch (err) {
     event.target.disabled = false;
     event.target.textContent = '🔄 Buscar';
-    toast('Error al detectar impresoras: ' + err.message, 'error');
+    toast('❌ No se puede conectar con el agente local.\n\n¿Está ejecutando zebra-agent.exe en PC #2?\n\nError: ' + err.message, 'error');
   }
 }
 
@@ -628,7 +640,7 @@ async function selectPrinter() {
   if (!ip) return;
 
   try {
-    const res = await fetch('/api/select-printer', {
+    const res = await fetch(`${AGENT_URL}/api/select`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ip, port: 9100 })
@@ -636,7 +648,7 @@ async function selectPrinter() {
     const data = await res.json();
     if (res.ok) {
       document.getElementById('printerIp').value = ip;
-      toast(`Impresora seleccionada: ${ip}`, 'success');
+      toast(`✅ Impresora seleccionada: ${ip}`, 'success');
     }
   } catch (err) {
     toast('Error al seleccionar impresora: ' + err.message, 'error');
