@@ -283,6 +283,43 @@
   </div>
 </div>
 
+<!-- Design Editor Modal -->
+<div class="modal-overlay" id="designEditorModal">
+  <div class="modal" style="max-width: 1200px;">
+    <h3>✏️ Editor de Diseño</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 16px;">
+      <div>
+        <h4>Elementos</h4>
+        <div style="max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px;">
+          <table style="width: 100%; font-size: 12px;">
+            <thead>
+              <tr style="background: #f3f4f6; position: sticky; top: 0;">
+                <th style="padding: 8px; text-align: left;">Elemento</th>
+                <th style="padding: 8px;">X</th>
+                <th style="padding: 8px;">Y</th>
+                <th style="padding: 8px;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="elementsTableBody"></tbody>
+          </table>
+        </div>
+        <button class="btn btn-success" style="margin-top: 12px; width: 100%;" onclick="addNewElement()">➕ Agregar</button>
+      </div>
+      <div>
+        <h4>Vista Previa ZPL</h4>
+        <div style="background: #f3f4f6; border-radius: 8px; padding: 12px; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 11px; white-space: pre-wrap;" id="previewZPL"></div>
+      </div>
+    </div>
+    <div style="margin-top: 16px;">
+      <button class="btn btn-outline" onclick="toggleDeveloperMode()">👨‍💻 Modo Desarrollador</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeDesignEditor()">Cerrar</button>
+      <button class="btn btn-primary" onclick="saveDesignChanges()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toasts"></div>
 
 <script>
@@ -678,7 +715,176 @@ async function selectPrinter() {
 // Init
 window.addEventListener('load', () => {
   detectPrinters();
+  loadDesigns();
 });
+
+// === EDITOR DE DISEÑOS ===
+let currentDesign = null;
+
+async function loadDesigns() {
+  try {
+    const res = await fetch('/api/designs');
+    const designList = await res.json();
+    const select = document.getElementById('designSelect');
+    select.innerHTML = '<option value="">-- Selecciona diseño --</option>';
+    designList.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d.id;
+      opt.textContent = `${d.name}${d.active ? ' ★' : ''}`;
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    console.error('Error cargando diseños:', err);
+  }
+}
+
+async function openDesignEditor() {
+  const designId = document.getElementById('designSelect').value;
+  if (!designId) {
+    toast('Selecciona un diseño primero', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/designs');
+    const designs = await res.json();
+    currentDesign = JSON.parse(JSON.stringify(designs.find(d => d.id === designId)));
+
+    if (!currentDesign) throw new Error('Diseño no encontrado');
+
+    renderElementsTable();
+    updatePreview();
+    document.getElementById('designEditorModal').classList.add('active');
+  } catch (err) {
+    toast('Error: ' + err.message, 'error');
+  }
+}
+
+function closeDesignEditor() {
+  document.getElementById('designEditorModal').classList.remove('active');
+  currentDesign = null;
+}
+
+function renderElementsTable() {
+  if (!currentDesign) return;
+  const tbody = document.getElementById('elementsTableBody');
+  tbody.innerHTML = currentDesign.elements.map(el => `
+    <tr style="border-bottom: 1px solid #e5e7eb;">
+      <td style="padding: 8px; font-weight: 500;">${el.label}</td>
+      <td style="padding: 8px;"><input type="number" value="${el.x}" style="width: 50px; padding: 4px; border: 1px solid #d1d5db; border-radius: 4px;" onchange="updateElement(${el.id}, 'x', this.value)"></td>
+      <td style="padding: 8px;"><input type="number" value="${el.y}" style="width: 50px; padding: 4px; border: 1px solid #d1d5db; border-radius: 4px;" onchange="updateElement(${el.id}, 'y', this.value)"></td>
+      <td style="padding: 8px;"><button class="btn btn-sm btn-outline" onclick="editElement(${el.id})">✏️</button></td>
+      <td style="padding: 8px;"><button class="btn btn-sm btn-danger" onclick="deleteElement(${el.id})">🗑️</button></td>
+    </tr>
+  `).join('');
+}
+
+function addNewElement() {
+  if (!currentDesign) return;
+  const newId = Math.max(...currentDesign.elements.map(e => e.id), 0) + 1;
+  currentDesign.elements.push({
+    id: newId,
+    type: 'text',
+    label: `Elemento ${newId}`,
+    field: `field_${newId}`,
+    x: 30,
+    y: 30 + (currentDesign.elements.length * 35),
+    font: 'A0N',
+    fontSize: '24,24',
+    order: currentDesign.elements.length + 1
+  });
+  renderElementsTable();
+  updatePreview();
+}
+
+function updateElement(id, prop, value) {
+  if (!currentDesign) return;
+  const el = currentDesign.elements.find(e => e.id === id);
+  if (el) {
+    el[prop] = isNaN(value) ? value : parseInt(value);
+    updatePreview();
+  }
+}
+
+function editElement(id) {
+  if (!currentDesign) return;
+  const el = currentDesign.elements.find(e => e.id === id);
+  if (!el) return;
+
+  const newLabel = prompt('Nombre:', el.label);
+  if (newLabel !== null) el.label = newLabel;
+
+  const newField = prompt('Campo (codigosenasa, qr, etc):', el.field);
+  if (newField !== null) el.field = newField;
+
+  if (el.type === 'text') {
+    const newSize = prompt('Tamaño (ej: 24,24):', el.fontSize);
+    if (newSize !== null) el.fontSize = newSize;
+  }
+
+  renderElementsTable();
+  updatePreview();
+}
+
+function deleteElement(id) {
+  if (!currentDesign || !confirm('¿Eliminar?')) return;
+  currentDesign.elements = currentDesign.elements.filter(e => e.id !== id);
+  renderElementsTable();
+  updatePreview();
+}
+
+function updatePreview() {
+  if (!currentDesign || !state.data.length) {
+    document.getElementById('previewZPL').textContent = 'Carga un Excel primero...';
+    return;
+  }
+  const record = state.data[0];
+  const zpl = generateZPLFromDesign(record, currentDesign);
+  document.getElementById('previewZPL').textContent = zpl;
+}
+
+function generateZPLFromDesign(record, design) {
+  let zpl = `^XA\n^CI28\n^PW812\n^LL406\n`;
+  design.elements.forEach(el => {
+    if (el.type === 'text') {
+      const value = String(record[el.field] || el.field);
+      const [w, h] = el.fontSize.split(',');
+      zpl += `^FO${el.x},${el.y}^A0N,${w},${h}^FD${value}^FS\n`;
+    } else if (el.type === 'qr') {
+      const value = String(record[el.field] || el.field);
+      zpl += `^FO${el.x},${el.y}^BQN,2,5^FDMA,${value}^FS\n`;
+    }
+  });
+  zpl += `^PQ1\n^XZ`;
+  return zpl;
+}
+
+function toggleDeveloperMode() {
+  const text = document.getElementById('previewZPL').textContent;
+  const modal = prompt('Edita ZPL (avanzado):', text);
+  if (modal !== null) document.getElementById('previewZPL').textContent = modal;
+}
+
+async function saveDesignChanges() {
+  if (!currentDesign) return;
+  try {
+    const res = await fetch(`/api/designs/${currentDesign.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: currentDesign.name,
+        description: currentDesign.description,
+        elements: currentDesign.elements
+      })
+    });
+    if (res.ok) {
+      toast('✅ Diseño guardado', 'success');
+      closeDesignEditor();
+    } else throw new Error('Error guardando');
+  } catch (err) {
+    toast('Error: ' + err.message, 'error');
+  }
+}
 </script>
 </body>
 </html>
