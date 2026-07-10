@@ -252,22 +252,40 @@ function generateZPL(record) {
     ? `${fechaParts[2]}/${fechaParts[1]}/${fechaParts[0]}`
     : record.fecha;
 
-  return `^XA
+  const stickersPerRow = 4;
+  const stickerWidth = 200;
+  const stickerHeight = 200;
+  const paddingX = 2;
+  const paddingY = 5;
+
+  let zpl = `^XA
 ^CI28
 ^PW812
 ^LL406
-^FO30,30^A0N,28,28^FD${record.codigosenasa}^FS
-^FO30,65^A0N,24,24^FDTrab: ${record.codigotrabajador} - ${record.nombretrabajador}^FS
-^FO30,95^A0N,24,24^FDAux: ${record.codigoauxiliar} - ${record.nombreauxiliar}^FS
-^FO30,130^A0N,22,22^FDTurno: ${record.turno}  Lateral: ${record.lateral}  Lote: ${record.lote}^FS
-^FO30,160^A0N,22,22^FDGrupo: ${record.grupoVariedad}^FS
-^FO30,190^A0N,22,22^FDFecha: ${fechaFormatted}  Contador: ${record.contador}^FS
-^FO550,30^BQN,2,5^FDMA,${record.qr}^FS
-^FO30,230^GB750,0,2^FS
-^FO30,245^A0N,20,20^FD${record.qr}^FS
-^PQ1
+`;
+
+  for (let i = 0; i < stickersPerRow; i++) {
+    const baseX = i * stickerWidth;
+
+    zpl += `^FO${baseX + paddingX},${paddingY}^A0N,16,16^FD${record.codigosenasa}^FS
+^FO${baseX + paddingX},${25 + paddingY}^A0N,12,12^FD${record.codigotrabajador}^FS
+^FO${baseX + paddingX},${45 + paddingY}^A0N,11,11^FD${record.nombretrabajador.substring(0, 15)}^FS
+^FO${baseX + paddingX},${60 + paddingY}^A0N,10,10^FDAux: ${record.codigoauxiliar}^FS
+^FO${baseX + paddingX},${75 + paddingY}^A0N,10,10^FDTurno: ${record.turno}^FS
+^FO${baseX + paddingX},${90 + paddingY}^A0N,10,10^FDLateral: ${record.lateral}^FS
+^FO${baseX + paddingX},${105 + paddingY}^A0N,10,10^FDLote: ${record.lote}^FS
+^FO${baseX + paddingX},${120 + paddingY}^A0N,10,10^FDGrupo: ${record.grupoVariedad}^FS
+^FO${baseX + paddingX},${135 + paddingY}^A0N,10,10^FD${fechaFormatted}^FS
+^FO${baseX + paddingX},${150 + paddingY}^A0N,12,12^FDCont: ${record.contador}^FS
+^FO${baseX + 60},${165 + paddingY}^BQN,2,3^FDMA,${record.qr}^FS
+`;
+  }
+
+  zpl += `^PQ1
 ^XZ
 `;
+
+  return zpl;
 }
 
 app.post('/api/print', async (req, res) => {
