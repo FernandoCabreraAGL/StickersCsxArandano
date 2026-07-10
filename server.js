@@ -52,16 +52,20 @@ app.get('/api/designs', (req, res) => {
 });
 
 app.post('/api/designs', (req, res) => {
-  const { name, description, elements } = req.body;
+  const { name, description, elements, marginTop, marginBottom, marginLeft, marginRight, pageWidth, pageHeight } = req.body;
   const id = `design-${Date.now()}`;
   const newDesign = {
     id,
     name,
     description,
-    elements,
+    elements: elements || [],
     active: false,
-    pageWidth: 812,
-    pageHeight: 406,
+    pageWidth: pageWidth || 812,
+    pageHeight: pageHeight || 406,
+    marginTop: marginTop || 5,
+    marginBottom: marginBottom || 5,
+    marginLeft: marginLeft || 5,
+    marginRight: marginRight || 5,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
@@ -72,13 +76,20 @@ app.post('/api/designs', (req, res) => {
 
 app.put('/api/designs/:id', (req, res) => {
   const { id } = req.params;
-  const { name, description, elements } = req.body;
+  const { name, description, elements, marginTop, marginBottom, marginLeft, marginRight, pageWidth, pageHeight } = req.body;
   const design = designs.find(d => d.id === id);
   if (!design) return res.status(404).json({ error: 'Diseño no encontrado' });
 
-  design.name = name;
-  design.description = description;
-  design.elements = elements;
+  if (name !== undefined) design.name = name;
+  if (description !== undefined) design.description = description;
+  if (elements !== undefined) design.elements = elements;
+  if (marginTop !== undefined) design.marginTop = marginTop;
+  if (marginBottom !== undefined) design.marginBottom = marginBottom;
+  if (marginLeft !== undefined) design.marginLeft = marginLeft;
+  if (marginRight !== undefined) design.marginRight = marginRight;
+  if (pageWidth !== undefined) design.pageWidth = pageWidth;
+  if (pageHeight !== undefined) design.pageHeight = pageHeight;
+
   design.updatedAt = new Date().toISOString();
   saveDesigns();
   res.json(design);
@@ -246,11 +257,52 @@ app.get('/api/data', (req, res) => {
   });
 });
 
+const DOTS_PER_MM = 8;
+function mmToDots(mm) { return Math.round(mm * DOTS_PER_MM); }
+function dotsToMm(dots) { return (dots / DOTS_PER_MM).toFixed(1); }
+
+function generateZPLFromDesign(record, design) {
+  const pageWidth = design.pageWidth || 812;
+  const pageHeight = design.pageHeight || 406;
+
+  let zpl = `^XA\n^CI28\n^PW${pageWidth}\n^LL${pageHeight}\n`;
+
+  if (!design.elements || !design.elements.length) {
+    zpl += `^FO30,30^A0N,28,28^FD${record.codigosenasa || 'N/A'}^FS\n`;
+    zpl += `^PQ1\n^XZ`;
+    return zpl;
+  }
+
+  design.elements.forEach(el => {
+    if (el.type === 'text') {
+      const value = String(record[el.field] || el.field || '');
+      const [w, h] = (el.fontSize || '24,24').split(',');
+      const x = el.x || 30;
+      const y = el.y || 30;
+      zpl += `^FO${x},${y}^A0N,${w},${h}^FD${value}^FS\n`;
+    } else if (el.type === 'qr') {
+      const value = String(record[el.field] || el.field || '');
+      const x = el.x || 550;
+      const y = el.y || 30;
+      const size = el.size || '2,5';
+      zpl += `^FO${x},${y}^BQN,${size}^FDMA,${value}^FS\n`;
+    }
+  });
+
+  zpl += `^PQ1\n^XZ`;
+  return zpl;
+}
+
 function generateZPL(record) {
   const fechaParts = record.fecha.split('-');
   const fechaFormatted = fechaParts.length === 3
     ? `${fechaParts[2]}/${fechaParts[1]}/${fechaParts[0]}`
     : record.fecha;
+
+  const design = designs.find(d => d.active) || designs[0];
+  if (design && design.elements) {
+    return generateZPLFromDesign(record, design);
+  }
 
   return `^XA
 ^CI28
@@ -301,10 +353,46 @@ app.post('/api/print', async (req, res) => {
 });
 
 app.post('/api/preview-zpl', (req, res) => {
-  const { id } = req.body;
+  const { id, designId } = req.body;
   const record = currentData.find(r => r.id === id);
   if (!record) return res.status(404).json({ error: 'Registro no encontrado' });
-  res.json({ zpl: generateZPL(record), record });
+
+  let zpl = generateZPL(record);
+  if (designId) {
+    const design = designs.find(d => d.id === designId);
+    if (design) {
+      zpl = generateZPLFromDesign(record, design);
+    }
+  }
+
+  res.json({ zpl, record });
+});
+
+app.post('/api/calculate-margins', (req, res) => {
+  const { marginTopMm, marginBottomMm, marginLeftMm, marginRightMm, pageWidthMm, pageHeightMm } = req.body;
+
+  res.json({
+    margins: {
+      top: { mm: marginTopMm, dots: mmToDots(marginTopMm) },
+      bottom: { mm: marginBottomMm, dots: mmToDots(marginBottomMm) },
+      left: { mm: marginLeftMm, dots: mmToDots(marginLeftMm) },
+      right: { mm: marginRightMm, dots: mmToDots(marginRightMm) }
+    },
+    page: {
+      widthMm: pageWidthMm,
+      widthDots: mmToDots(pageWidthMm),
+      heightMm: pageHeightMm,
+      heightDots: mmToDots(pageHeightMm)
+    },
+    workArea: {
+      x: mmToDots(marginLeftMm),
+      y: mmToDots(marginTopMm),
+      widthDots: mmToDots(pageWidthMm - marginLeftMm - marginRightMm),
+      heightDots: mmToDots(pageHeightMm - marginTopMm - marginBottomMm),
+      widthMm: pageWidthMm - marginLeftMm - marginRightMm,
+      heightMm: pageHeightMm - marginTopMm - marginBottomMm
+    }
+  });
 });
 
 app.post('/api/print-all', async (req, res) => {

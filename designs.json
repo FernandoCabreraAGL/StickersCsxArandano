@@ -3,7 +3,7 @@
     {
       "id": "arandano-standard",
       "name": "Etiqueta Arándano Estándar",
-      "description": "Diseño principal para etiquetas de arándano",
+      "description": "Diseño principal para etiquetas de arándano (203 DPI - 8 dots/mm)",
       "active": true,
       "elements": [
         {
@@ -63,6 +63,12 @@
       ],
       "pageWidth": 812,
       "pageHeight": 406,
+      "pageWidthMm": 101.6,
+      "pageHeightMm": 50.8,
+      "marginTop": 5,
+      "marginBottom": 5,
+      "marginLeft": 5,
+      "marginRight": 5,
       "createdAt": "2026-07-10T00:00:00Z",
       "updatedAt": "2026-07-10T00:00:00Z"
     }

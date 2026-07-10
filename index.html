@@ -181,6 +181,28 @@
     </div>
   </div>
 
+  <!-- Design Selection -->
+  <div class="card">
+    <h2><span class="icon">🎨</span> Diseño de Etiqueta</h2>
+    <div class="config-row">
+      <div class="form-group" style="flex: 1;">
+        <label>Diseño activo</label>
+        <select id="designSelect" onchange="updateDesignPreview()">
+          <option value="">Cargando diseños...</option>
+        </select>
+      </div>
+      <div style="display: flex; align-items: flex-end; gap: 8px;">
+        <button class="btn btn-outline" onclick="openMarginsModal()" id="btnEditMargins" disabled>
+          ⚙️ Editar Márgenes
+        </button>
+      </div>
+    </div>
+    <div id="designPreviewContainer" style="margin-top: 12px; display: none;">
+      <h4 style="font-size: 13px; margin-bottom: 8px;">Vista Previa de Márgenes</h4>
+      <svg id="designPreview" width="400" height="200" style="border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb;"></svg>
+    </div>
+  </div>
+
   <!-- Upload -->
   <div class="card">
     <h2><span class="icon">&#128196;</span> Cargar Excel</h2>
@@ -268,6 +290,68 @@
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeConfirmModal()">Cancelar</button>
       <button class="btn btn-danger" onclick="printAll()">Confirmar e Imprimir</button>
+    </div>
+  </div>
+</div>
+
+<!-- Design Margins Modal -->
+<div class="modal-overlay" id="marginsModal">
+  <div class="modal" style="max-width: 800px;">
+    <h3>⚙️ Editar Márgenes de Diseño</h3>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 20px;">
+      <!-- Márgenes en MM -->
+      <div>
+        <h4 style="margin-bottom: 12px; font-size: 14px; font-weight: 600;">Márgenes (mm)</h4>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label>Superior</label>
+            <input type="number" id="marginTop" value="5" step="0.5" min="0">
+          </div>
+          <div class="form-group">
+            <label>Inferior</label>
+            <input type="number" id="marginBottom" value="5" step="0.5" min="0">
+          </div>
+          <div class="form-group">
+            <label>Izquierdo</label>
+            <input type="number" id="marginLeft" value="5" step="0.5" min="0">
+          </div>
+          <div class="form-group">
+            <label>Derecho</label>
+            <input type="number" id="marginRight" value="5" step="0.5" min="0">
+          </div>
+        </div>
+      </div>
+
+      <!-- Dimensiones de Página -->
+      <div>
+        <h4 style="margin-bottom: 12px; font-size: 14px; font-weight: 600;">Dimensiones de Página</h4>
+        <div style="display: grid; gap: 12px;">
+          <div class="form-group">
+            <label>Ancho (mm)</label>
+            <input type="number" id="pageWidthMm" value="101.6" step="0.1" min="10">
+          </div>
+          <div class="form-group">
+            <label>Alto (mm)</label>
+            <input type="number" id="pageHeightMm" value="50.8" step="0.1" min="10">
+          </div>
+          <div style="padding: 8px; background: #eff6ff; border-radius: 6px; border-left: 3px solid #1a56db; font-size: 12px;">
+            <strong>203 DPI = 8 dots/mm</strong><br>
+            <span id="conversionInfo" style="color: #6b7280;"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview Visual -->
+    <div style="margin-top: 20px; padding: 16px; background: #f9fafb; border-radius: 8px;">
+      <h4 style="margin-bottom: 12px; font-size: 14px; font-weight: 600;">Vista Previa de Márgenes</h4>
+      <svg id="marginsPreview" width="100%" height="200" style="border: 1px solid #e5e7eb; border-radius: 6px; background: white;"></svg>
+    </div>
+
+    <div class="modal-actions" style="margin-top: 20px;">
+      <button class="btn btn-outline" onclick="closeMarginsModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveMarginsChanges()">💾 Guardar Cambios</button>
     </div>
   </div>
 </div>
@@ -532,6 +616,221 @@ function esc(s) {
   d.textContent = s;
   return d.innerHTML;
 }
+
+// ===== FASE 3: MÁRGENES Y DISEÑOS =====
+let currentDesign = null;
+let currentDesignMargins = null;
+
+const DOTS_PER_MM = 8;
+function mmToDots(mm) { return Math.round(mm * DOTS_PER_MM); }
+function dotsToMm(dots) { return (dots / DOTS_PER_MM).toFixed(1); }
+
+// Cargar diseños al iniciar
+async function loadDesigns() {
+  try {
+    const res = await fetch('/api/designs');
+    const designList = await res.json();
+    const select = document.getElementById('designSelect');
+    select.innerHTML = '<option value="">-- Selecciona diseño --</option>';
+
+    designList.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d.id;
+      opt.textContent = `${d.name}${d.active ? ' ★' : ''}`;
+      select.appendChild(opt);
+    });
+
+    if (designList.length > 0) {
+      const active = designList.find(d => d.active);
+      if (active) {
+        select.value = active.id;
+        updateDesignPreview();
+      }
+    }
+  } catch (err) {
+    console.error('Error cargando diseños:', err);
+    toast('Error al cargar diseños', 'error');
+  }
+}
+
+function updateDesignPreview() {
+  const designId = document.getElementById('designSelect').value;
+  if (!designId) {
+    document.getElementById('designPreviewContainer').style.display = 'none';
+    document.getElementById('btnEditMargins').disabled = true;
+    currentDesign = null;
+    return;
+  }
+
+  fetch('/api/designs')
+    .then(r => r.json())
+    .then(designs => {
+      currentDesign = designs.find(d => d.id === designId);
+      if (currentDesign) {
+        currentDesignMargins = {
+          marginTop: currentDesign.marginTop || 5,
+          marginBottom: currentDesign.marginBottom || 5,
+          marginLeft: currentDesign.marginLeft || 5,
+          marginRight: currentDesign.marginRight || 5,
+          pageWidthMm: (currentDesign.pageWidthMm || currentDesign.pageWidth / DOTS_PER_MM),
+          pageHeightMm: (currentDesign.pageHeightMm || currentDesign.pageHeight / DOTS_PER_MM)
+        };
+        drawDesignPreview();
+        document.getElementById('designPreviewContainer').style.display = 'block';
+        document.getElementById('btnEditMargins').disabled = false;
+      }
+    })
+    .catch(err => {
+      console.error('Error:', err);
+      toast('Error al cargar diseño', 'error');
+    });
+}
+
+function drawDesignPreview() {
+  if (!currentDesignMargins) return;
+
+  const svg = document.getElementById('designPreview');
+  const { marginTop, marginBottom, marginLeft, marginRight, pageWidthMm, pageHeightMm } = currentDesignMargins;
+
+  // Escalado para que quepa en 400x200
+  const scale = Math.min(400 / pageWidthMm, 200 / pageHeightMm, 3);
+
+  svg.innerHTML = `
+    <!-- Fondo página -->
+    <rect width="${pageWidthMm * scale}" height="${pageHeightMm * scale}" fill="#ffffff" stroke="#999" stroke-width="1"/>
+
+    <!-- Márgenes (área gris) -->
+    <rect x="${marginLeft * scale}" y="${marginTop * scale}"
+          width="${(pageWidthMm - marginLeft - marginRight) * scale}"
+          height="${(pageHeightMm - marginTop - marginBottom) * scale}"
+          fill="#f0f0f0" stroke="#3b82f6" stroke-width="1" stroke-dasharray="2,2"/>
+
+    <!-- Indicadores de márgenes -->
+    <g font-size="10" fill="#666">
+      <text x="5" y="15">T:${marginTop}mm</text>
+      <text x="5" y="${pageHeightMm * scale - 5}">B:${marginBottom}mm</text>
+      <text x="${pageWidthMm * scale - 40}" y="15">R:${marginRight}mm</text>
+    </g>
+
+    <!-- Texto informativo -->
+    <text x="${pageWidthMm * scale / 2}" y="${pageHeightMm * scale / 2}"
+          text-anchor="middle" font-size="12" fill="#999">
+      ${pageWidthMm}×${pageHeightMm}mm
+    </text>
+  `;
+}
+
+function openMarginsModal() {
+  if (!currentDesign) {
+    toast('Selecciona un diseño primero', 'error');
+    return;
+  }
+
+  // Cargar valores actuales
+  document.getElementById('marginTop').value = currentDesignMargins.marginTop || 5;
+  document.getElementById('marginBottom').value = currentDesignMargins.marginBottom || 5;
+  document.getElementById('marginLeft').value = currentDesignMargins.marginLeft || 5;
+  document.getElementById('marginRight').value = currentDesignMargins.marginRight || 5;
+  document.getElementById('pageWidthMm').value = currentDesignMargins.pageWidthMm || 101.6;
+  document.getElementById('pageHeightMm').value = currentDesignMargins.pageHeightMm || 50.8;
+
+  // Event listeners para actualizar preview en tiempo real
+  ['marginTop', 'marginBottom', 'marginLeft', 'marginRight', 'pageWidthMm', 'pageHeightMm'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updateMarginsPreview);
+  });
+
+  updateMarginsPreview();
+  document.getElementById('marginsModal').classList.add('active');
+}
+
+function closeMarginsModal() {
+  document.getElementById('marginsModal').classList.remove('active');
+}
+
+function updateMarginsPreview() {
+  const marginTop = parseFloat(document.getElementById('marginTop').value) || 0;
+  const marginBottom = parseFloat(document.getElementById('marginBottom').value) || 0;
+  const marginLeft = parseFloat(document.getElementById('marginLeft').value) || 0;
+  const marginRight = parseFloat(document.getElementById('marginRight').value) || 0;
+  const pageWidthMm = parseFloat(document.getElementById('pageWidthMm').value) || 101.6;
+  const pageHeightMm = parseFloat(document.getElementById('pageHeightMm').value) || 50.8;
+
+  // Mostrar conversión a dots
+  const info = `Ancho: ${pageWidthMm}mm = ${mmToDots(pageWidthMm)} dots | Alto: ${pageHeightMm}mm = ${mmToDots(pageHeightMm)} dots`;
+  document.getElementById('conversionInfo').textContent = info;
+
+  // Dibujar preview
+  const svg = document.getElementById('marginsPreview');
+  const scale = Math.min(600 / pageWidthMm, 180 / pageHeightMm, 3);
+
+  svg.innerHTML = `
+    <rect width="${pageWidthMm * scale}" height="${pageHeightMm * scale}" fill="#ffffff" stroke="#999" stroke-width="2"/>
+    <rect x="${marginLeft * scale}" y="${marginTop * scale}"
+          width="${Math.max(1, (pageWidthMm - marginLeft - marginRight) * scale)}"
+          height="${Math.max(1, (pageHeightMm - marginTop - marginBottom) * scale)}"
+          fill="#e3f2fd" stroke="#1a56db" stroke-width="2" stroke-dasharray="4,4"/>
+
+    <text x="${10}" y="${15}" font-size="12" fill="#666">
+      T: ${marginTop}mm = ${mmToDots(marginTop)} dots
+    </text>
+    <text x="${10}" y="${pageHeightMm * scale - 5}" font-size="12" fill="#666">
+      B: ${marginBottom}mm
+    </text>
+    <text x="${pageWidthMm * scale - 120}" y="${15}" font-size="12" fill="#666">
+      R: ${marginRight}mm
+    </text>
+    <text x="${pageWidthMm * scale / 2}" y="${pageHeightMm * scale / 2 + 20}"
+          text-anchor="middle" font-size="11" fill="#999">
+      Área de trabajo: ${(pageWidthMm - marginLeft - marginRight).toFixed(1)}×${(pageHeightMm - marginTop - marginBottom).toFixed(1)}mm
+    </text>
+  `;
+}
+
+async function saveMarginsChanges() {
+  if (!currentDesign) return;
+
+  const marginTop = parseFloat(document.getElementById('marginTop').value) || 5;
+  const marginBottom = parseFloat(document.getElementById('marginBottom').value) || 5;
+  const marginLeft = parseFloat(document.getElementById('marginLeft').value) || 5;
+  const marginRight = parseFloat(document.getElementById('marginRight').value) || 5;
+  const pageWidthMm = parseFloat(document.getElementById('pageWidthMm').value) || 101.6;
+  const pageHeightMm = parseFloat(document.getElementById('pageHeightMm').value) || 50.8;
+
+  try {
+    const res = await fetch(`/api/designs/${currentDesign.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: currentDesign.name,
+        description: currentDesign.description,
+        elements: currentDesign.elements,
+        marginTop,
+        marginBottom,
+        marginLeft,
+        marginRight,
+        pageWidth: mmToDots(pageWidthMm),
+        pageHeight: mmToDots(pageHeightMm),
+        pageWidthMm,
+        pageHeightMm
+      })
+    });
+
+    if (res.ok) {
+      toast('✅ Márgenes guardados correctamente', 'success');
+      closeMarginsModal();
+      updateDesignPreview();
+    } else {
+      throw new Error('Error al guardar');
+    }
+  } catch (err) {
+    toast('Error: ' + err.message, 'error');
+  }
+}
+
+// Cargar diseños cuando se carga la página
+window.addEventListener('load', () => {
+  loadDesigns();
+});
 </script>
 </body>
 </html>
