@@ -177,20 +177,18 @@
         </div>
       </div>
       <div class="form-group">
-        <label>IP de Impresora (manual)</label>
-        <input type="text" id="printerIp" value="192.168.1.24">
-      </div>
-      <div class="form-group">
-        <label>Puerto</label>
-        <input type="number" id="printerPort" value="9100">
+        <label>Diseño de Etiqueta</label>
+        <div style="display: flex; gap: 8px;">
+          <select id="designSelect">
+            <option value="">Cargando diseños...</option>
+          </select>
+          <button class="btn btn-primary" onclick="openDesignEditor()">✏️ Editar Diseño</button>
+        </div>
       </div>
       <div class="form-group">
         <label>Copias por etiqueta</label>
         <input type="number" id="copies" value="1" min="1" max="99">
       </div>
-    </div>
-    <div style="margin-top: 12px; padding: 8px; background: #f0f7ff; border-radius: 8px; font-size: 13px; color: #1e40af;">
-      💡 La búsqueda escaneará tu red buscando impresoras ZEBRA. Esto puede tardar 10-30 segundos.
     </div>
   </div>
 
