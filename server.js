@@ -284,9 +284,8 @@ function generateZPL(record) {
 
   const stickersPerRow = 4;
   const stickerWidth = 200;
-  const stickerHeight = 200;
   const paddingX = 2;
-  const paddingY = 5;
+  const paddingY = 3;
 
   let zpl = `^XA
 ^CI28
@@ -296,18 +295,18 @@ function generateZPL(record) {
 
   for (let i = 0; i < stickersPerRow; i++) {
     const baseX = i * stickerWidth;
+    const colX = baseX + paddingX;
 
-    zpl += `^FO${baseX + paddingX},${paddingY}^A0N,16,16^FD${record.codigosenasa}^FS
-^FO${baseX + paddingX},${25 + paddingY}^A0N,12,12^FD${record.codigotrabajador}^FS
-^FO${baseX + paddingX},${45 + paddingY}^A0N,11,11^FD${record.nombretrabajador.substring(0, 15)}^FS
-^FO${baseX + paddingX},${60 + paddingY}^A0N,10,10^FDAux: ${record.codigoauxiliar}^FS
-^FO${baseX + paddingX},${75 + paddingY}^A0N,10,10^FDTurno: ${record.turno}^FS
-^FO${baseX + paddingX},${90 + paddingY}^A0N,10,10^FDLateral: ${record.lateral}^FS
-^FO${baseX + paddingX},${105 + paddingY}^A0N,10,10^FDLote: ${record.lote}^FS
-^FO${baseX + paddingX},${120 + paddingY}^A0N,10,10^FDGrupo: ${record.grupoVariedad}^FS
-^FO${baseX + paddingX},${135 + paddingY}^A0N,10,10^FD${fechaFormatted}^FS
-^FO${baseX + paddingX},${150 + paddingY}^A0N,12,12^FDCont: ${record.contador}^FS
-^FO${baseX + 60},${165 + paddingY}^BQN,2,3^FDMA,${record.qr}^FS
+    // Formato compacto para 200×200 dots
+    zpl += `^FO${colX},${paddingY}^A0N,14,14^FD${record.codigosenasa}^FS
+^FO${colX},${19}^A0N,10,10^FD${record.codigotrabajador}^FS
+^FO${colX},${32}^A0N,9,9^FD${record.nombretrabajador.substring(0, 18)}^FS
+^FO${colX},${44}^A0N,9,9^FD${record.codigoauxiliar}^FS
+^FO${colX},${56}^A0N,8,8^FDTurno:${record.turno} Lat:${record.lateral}^FS
+^FO${colX},${66}^A0N,8,8^FDLote:${record.lote} Gr:${record.grupoVariedad}^FS
+^FO${colX},${76}^A0N,8,8^FD${fechaFormatted}^FS
+^FO${colX},${86}^A0N,10,10^FDCt:${record.contador}^FS
+^FO${baseX + 95},${95}^BQN,2,2^FDMA,${record.qr}^FS
 `;
   }
 
