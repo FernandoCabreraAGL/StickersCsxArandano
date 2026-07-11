@@ -284,8 +284,8 @@ function generateZPL(record) {
 
   const stickersPerRow = 4;
   const stickerWidth = 200;
-  const paddingX = 2;
-  const paddingY = 3;
+  const paddingX = 3;
+  const paddingY = 2;
 
   let zpl = `^XA
 ^CI28
@@ -297,16 +297,18 @@ function generateZPL(record) {
     const baseX = i * stickerWidth;
     const colX = baseX + paddingX;
 
-    // Formato compacto para 200×200 dots
-    zpl += `^FO${colX},${paddingY}^A0N,14,14^FD${record.codigosenasa}^FS
-^FO${colX},${19}^A0N,10,10^FD${record.codigotrabajador}^FS
-^FO${colX},${32}^A0N,9,9^FD${record.nombretrabajador.substring(0, 18)}^FS
-^FO${colX},${44}^A0N,9,9^FD${record.codigoauxiliar}^FS
-^FO${colX},${56}^A0N,8,8^FDTurno:${record.turno} Lat:${record.lateral}^FS
-^FO${colX},${66}^A0N,8,8^FDLote:${record.lote} Gr:${record.grupoVariedad}^FS
-^FO${colX},${76}^A0N,8,8^FD${fechaFormatted}^FS
-^FO${colX},${86}^A0N,10,10^FDCt:${record.contador}^FS
-^FO${baseX + 95},${95}^BQN,2,2^FDMA,${record.qr}^FS
+    // Formato mejorado - más compacto y legible
+    const nombre = record.nombretrabajador ? record.nombretrabajador.substring(0, 20) : '';
+
+    zpl += `^FO${colX},${paddingY}^A0N,13,13^FD${record.codigosenasa}^FS
+^FO${colX},${17}^A0N,10,10^FD${record.codigotrabajador}^FS
+^FO${colX},${29}^A0N,8,8^FD${nombre}^FS
+^FO${colX},${40}^A0N,8,8^FD${(record.codigoauxiliar || '')}^FS
+^FO${colX},${50}^A0N,7,7^FDT:${record.turno} L:${record.lateral}^FS
+^FO${colX},${58}^A0N,7,7^FDLt:${record.lote} G:${record.grupoVariedad}^FS
+^FO${colX},${66}^A0N,8,8^FD${fechaFormatted}^FS
+^FO${colX},${76}^A0N,9,9^FDCt:${record.contador}^FS
+^FO${baseX + 98},${90}^BQN,2,2^FDMA,${record.qr}^FS
 `;
   }
 
