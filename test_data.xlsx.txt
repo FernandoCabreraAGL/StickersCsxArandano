@@ -1,0 +1,51 @@
+DATOS DE PRUEBA PARA VERSIÓN 1.1.0
+
+Para probar la nueva versión 1.1.0 con 4 stickers por fila:
+
+1. Crear un archivo Excel (test_data.xlsx) con estas columnas:
+   - codigosenasa
+   - codigotrabajador
+   - nombretrabajador
+   - codigoauxiliar
+   - nombreauxiliar
+   - turno
+   - lateral
+   - lote
+   - grupo variedad
+   - fecha
+   - contador
+   - qr
+
+2. Datos de prueba (copiar en Excel):
+
+codigosenasa | codigotrabajador | nombretrabajador | codigoauxiliar | nombreauxiliar | turno | lateral | lote | grupo variedad | fecha | contador | qr
+00000000 | 15059 | GARCIA THALIA ESTHER | 44500 | ZALES CONDOR GAB ISABEL | Diurno | Norte | 001 | Variedad A | 2026-07-10 | 1 | QR001
+00000000 | 15059 | GARCIA THALIA ESTHER | 44500 | ZALES CONDOR GAB ISABEL | Diurno | Norte | 001 | Variedad A | 2026-07-10 | 2 | QR002
+00000000 | 15059 | GARCIA THALIA ESTHER | 44500 | ZALES CONDOR GAB ISABEL | Diurno | Norte | 001 | Variedad A | 2026-07-10 | 3 | QR003
+00000000 | 15059 | GARCIA THALIA ESTHER | 44500 | ZALES CONDOR GAB ISABEL | Diurno | Norte | 001 | Variedad A | 2026-07-10 | 4 | QR004
+
+3. Carga el archivo en el Portal
+4. Selecciona "Etiqueta Arándano Estándar"
+5. Selecciona los registros (recomendado seleccionar 1 para ver 4 stickers)
+6. Imprime: verás 4 stickers de 2.5cm × 2.5cm en una fila
+
+CAMBIOS EN VERSIÓN 1.1.0:
+- Cada sticker ocupa 200 dots de ancho (2.5cm)
+- Total de 4 stickers por fila = 800 dots (100% del ancho de página)
+- Información comprimida en cada sticker:
+  * Código SENASA (16 pts)
+  * Código Trabajador (12 pts)
+  * Nombre Trabajador (11 pts)
+  * Auxiliar (10 pts)
+  * Turno (10 pts)
+  * Lateral (10 pts)
+  * Lote (10 pts)
+  * Grupo (10 pts)
+  * Fecha (10 pts)
+  * Contador (12 pts)
+  * Código QR (2,3 módulos)
+
+PRÓXIMAS MEJORAS:
+- Versión 1.2.0: Espacios editable entre stickers
+- Versión 1.3.0: Soporte para múltiples registros (4 stickers diferentes en una fila)
+- Versión 2.0.0: Sistema de márgenes y positioning en mm

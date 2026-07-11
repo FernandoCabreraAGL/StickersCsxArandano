@@ -157,7 +157,7 @@
   <svg viewBox="0 0 36 36" fill="none"><rect width="36" height="36" rx="8" fill="rgba(255,255,255,.15)"/><path d="M8 12h20v2H8zm0 5h20v2H8zm0 5h14v2H8zm18 0h4v6h-4z" fill="white"/></svg>
   <div>
     <h1>Portal de Impresión Zebra</h1>
-    <div class="subtitle">Zebra ZT231 - Etiquetas de Arándano - Versión 1.1.0</div>
+    <div class="subtitle">Zebra ZT231 - Etiquetas de Arándano - Versión 1.2.0</div>
     <div class="subtitle">Ing. Fernando Cabrera - Agualima S.A.C.</div>
   </div>
 </div>
@@ -178,10 +178,11 @@
       </div>
       <div class="form-group">
         <label>Diseño de Etiqueta</label>
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <select id="designSelect">
             <option value="">Cargando diseños...</option>
           </select>
+          <button class="btn btn-success" onclick="openCreateDesignModal()">➕ Crear Diseño</button>
           <button class="btn btn-primary" onclick="openDesignEditor()">✏️ Editar Diseño</button>
         </div>
       </div>
@@ -316,6 +317,39 @@
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="closeDesignEditor()">Cerrar</button>
       <button class="btn btn-primary" onclick="saveDesignChanges()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="createDesignModal">
+  <div class="modal">
+    <h3>➕ Crear Nuevo Diseño</h3>
+    <div style="margin-top: 16px;">
+      <div class="form-group">
+        <label>Nombre del Diseño</label>
+        <input type="text" id="newDesignName" placeholder="ej: Etiqueta Personalizada">
+      </div>
+      <div class="form-group">
+        <label>Descripción</label>
+        <input type="text" id="newDesignDesc" placeholder="ej: Diseño para productos especiales">
+      </div>
+      <div class="form-group">
+        <label>Ancho de Página (dots)</label>
+        <input type="number" id="newDesignWidth" value="812" min="200">
+      </div>
+      <div class="form-group">
+        <label>Alto de Página (dots)</label>
+        <input type="number" id="newDesignHeight" value="406" min="100">
+      </div>
+      <div style="background: #f3f4f6; border-radius: 8px; padding: 12px; margin-top: 12px;">
+        <p style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">
+          📝 El nuevo diseño se creará vacío. Usa "Editar Diseño" para agregar elementos después de crearlo.
+        </p>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeCreateDesignModal()">Cancelar</button>
+      <button class="btn btn-success" onclick="createNewDesign()">✓ Crear</button>
     </div>
   </div>
 </div>
@@ -505,6 +539,7 @@ function getConfig() {
 async function printSelected() {
   const ids = Array.from(state.selected);
   const copies = parseInt(document.getElementById('copies').value) || 1;
+  const designId = document.getElementById('designSelect').value;
 
   try {
     // Obtener los registros seleccionados
@@ -515,7 +550,7 @@ async function printSelected() {
     let printedCount = 0;
     for (const record of records) {
       for (let c = 0; c < copies; c++) {
-        const zpl = await generateZPL(record);
+        const zpl = await generateZPL(record, designId);
 
         // Enviar al agente local
         try {
@@ -537,11 +572,11 @@ async function printSelected() {
   }
 }
 
-async function generateZPL(record) {
+async function generateZPL(record, designId) {
   const res = await fetch('/api/preview-zpl', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: record.id })
+    body: JSON.stringify({ id: record.id, designId })
   });
   const data = await res.json();
   return data.zpl;
@@ -558,6 +593,7 @@ function closeConfirmModal() { document.getElementById('confirmModal').classList
 async function printAll() {
   closeConfirmModal();
   const copies = parseInt(document.getElementById('copies').value) || 1;
+  const designId = document.getElementById('designSelect').value;
 
   try {
     let printedCount = 0;
@@ -569,7 +605,7 @@ async function printAll() {
 
       for (const record of result.data) {
         for (let c = 0; c < copies; c++) {
-          const zpl = await generateZPL(record);
+          const zpl = await generateZPL(record, designId);
 
           try {
             const printRes = await fetch('http://127.0.0.1:3001/api/print', {
@@ -770,6 +806,59 @@ async function openDesignEditor() {
 function closeDesignEditor() {
   document.getElementById('designEditorModal').classList.remove('active');
   currentDesign = null;
+}
+
+function openCreateDesignModal() {
+  document.getElementById('createDesignModal').classList.add('active');
+  document.getElementById('newDesignName').value = '';
+  document.getElementById('newDesignDesc').value = '';
+  document.getElementById('newDesignWidth').value = '812';
+  document.getElementById('newDesignHeight').value = '406';
+}
+
+function closeCreateDesignModal() {
+  document.getElementById('createDesignModal').classList.remove('active');
+}
+
+async function createNewDesign() {
+  const name = document.getElementById('newDesignName').value.trim();
+  const description = document.getElementById('newDesignDesc').value.trim();
+  const pageWidth = parseInt(document.getElementById('newDesignWidth').value) || 812;
+  const pageHeight = parseInt(document.getElementById('newDesignHeight').value) || 406;
+
+  if (!name) {
+    toast('Por favor ingresa un nombre para el diseño', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/designs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        description,
+        elements: [],
+        pageWidth,
+        pageHeight
+      })
+    });
+
+    if (!res.ok) throw new Error('Error al crear diseño');
+
+    const design = await res.json();
+    toast(`✓ Diseño "${name}" creado correctamente`, 'success');
+
+    closeCreateDesignModal();
+    loadDesigns();
+
+    setTimeout(() => {
+      document.getElementById('designSelect').value = design.id;
+      openDesignEditor();
+    }, 500);
+  } catch (err) {
+    toast('Error: ' + err.message, 'error');
+  }
 }
 
 function renderElementsTable() {

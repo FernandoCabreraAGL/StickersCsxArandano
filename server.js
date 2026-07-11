@@ -246,6 +246,36 @@ app.get('/api/data', (req, res) => {
   });
 });
 
+function generateZPLFromDesign(record, design) {
+  if (!design || !design.elements) {
+    return generateZPL(record);
+  }
+
+  const DOTS_PER_MM = 8;
+  let zpl = `^XA
+^CI28
+^PW${design.pageWidth}
+^LL${design.pageHeight}
+`;
+
+  design.elements.forEach(el => {
+    if (el.type === 'text') {
+      const value = record[el.field] || '';
+      zpl += `^FO${el.x},${el.y}^A0N,${el.fontSize}^FD${value}^FS\n`;
+    } else if (el.type === 'qr') {
+      const value = record[el.field] || '';
+      const [size1, size2] = el.size.split(',');
+      zpl += `^FO${el.x},${el.y}^BQN,${size1},${size2}^FDMA,${value}^FS\n`;
+    }
+  });
+
+  zpl += `^PQ1
+^XZ
+`;
+
+  return zpl;
+}
+
 function generateZPL(record) {
   const fechaParts = record.fecha.split('-');
   const fechaFormatted = fechaParts.length === 3
@@ -289,7 +319,7 @@ function generateZPL(record) {
 }
 
 app.post('/api/print', async (req, res) => {
-  const { ids, copies } = req.body;
+  const { ids, copies, designId } = req.body;
   const ip = selectedPrinter.ip;
   const port = selectedPrinter.port;
   const numCopies = copies || 1;
@@ -303,9 +333,11 @@ app.post('/api/print', async (req, res) => {
     return res.status(404).json({ error: 'No se encontraron registros' });
   }
 
+  const design = designId ? designs.find(d => d.id === designId) : null;
+
   let zplAll = '';
   for (const record of records) {
-    let zpl = generateZPL(record);
+    let zpl = design ? generateZPLFromDesign(record, design) : generateZPL(record);
     zpl = zpl.replace(/\^PQ1/, `^PQ${numCopies}`);
     zplAll += zpl;
   }
@@ -319,10 +351,14 @@ app.post('/api/print', async (req, res) => {
 });
 
 app.post('/api/preview-zpl', (req, res) => {
-  const { id } = req.body;
+  const { id, designId } = req.body;
   const record = currentData.find(r => r.id === id);
   if (!record) return res.status(404).json({ error: 'Registro no encontrado' });
-  res.json({ zpl: generateZPL(record), record });
+
+  const design = designId ? designs.find(d => d.id === designId) : null;
+  const zpl = design ? generateZPLFromDesign(record, design) : generateZPL(record);
+
+  res.json({ zpl, record });
 });
 
 app.post('/api/print-all', async (req, res) => {
