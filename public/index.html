@@ -157,7 +157,7 @@
   <svg viewBox="0 0 36 36" fill="none"><rect width="36" height="36" rx="8" fill="rgba(255,255,255,.15)"/><path d="M8 12h20v2H8zm0 5h20v2H8zm0 5h14v2H8zm18 0h4v6h-4z" fill="white"/></svg>
   <div>
     <h1>Portal de Impresión Zebra</h1>
-    <div class="subtitle">Zebra ZT231 - Etiquetas de Arándano - Versión 1.3.0</div>
+    <div class="subtitle">Zebra ZT231 - Etiquetas de Arándano - Versión 1.3.1</div>
     <div class="subtitle">Ing. Fernando Cabrera - Agualima S.A.C.</div>
   </div>
 </div>
@@ -309,6 +309,10 @@
       <div>
         <h4>Vista Previa ZPL</h4>
         <div style="background: #f3f4f6; border-radius: 8px; padding: 12px; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 11px; white-space: pre-wrap;" id="previewZPL"></div>
+      </div>
+      <div style="margin-top: 16px;">
+        <h4>Vista Previa Visual (v1.3.0)</h4>
+        <svg id="stickerPreview" width="200" height="200" style="border: 2px solid #333; border-radius: 8px; background: white;"></svg>
       </div>
     </div>
     <div style="margin-top: 16px;">
@@ -932,11 +936,91 @@ function deleteElement(id) {
 function updatePreview() {
   if (!currentDesign || !state.data.length) {
     document.getElementById('previewZPL').textContent = 'Carga un Excel primero...';
+    drawStickerPreview(null);
     return;
   }
   const record = state.data[0];
   const zpl = generateZPLFromDesign(record, currentDesign);
   document.getElementById('previewZPL').textContent = zpl;
+  drawStickerPreview(record);
+}
+
+function drawStickerPreview(record) {
+  const svg = document.getElementById('stickerPreview');
+  if (!svg) return;
+
+  svg.innerHTML = '';
+
+  if (!record) {
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', '100');
+    text.setAttribute('y', '100');
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'middle');
+    text.setAttribute('font-size', '12');
+    text.setAttribute('fill', '#999');
+    text.textContent = 'Sin datos';
+    svg.appendChild(text);
+    return;
+  }
+
+  // Border
+  const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  rect.setAttribute('x', '0');
+  rect.setAttribute('y', '0');
+  rect.setAttribute('width', '200');
+  rect.setAttribute('height', '200');
+  rect.setAttribute('fill', 'white');
+  rect.setAttribute('stroke', '#333');
+  rect.setAttribute('stroke-width', '1');
+  svg.appendChild(rect);
+
+  const addText = (x, y, text, size = 10, anchor = 'start', rotation = 0) => {
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t.setAttribute('x', x);
+    t.setAttribute('y', y);
+    t.setAttribute('font-size', size);
+    t.setAttribute('fill', '#000');
+    t.setAttribute('text-anchor', anchor);
+    t.setAttribute('dominant-baseline', 'middle');
+    if (rotation) t.setAttribute('transform', `rotate(${rotation} ${x} ${y})`);
+    t.textContent = String(text).substring(0, 18);
+    svg.appendChild(t);
+  };
+
+  // Nombre Trabajador (ARRIBA)
+  addText(5, 20, record.nombretrabajador || 'N/A', 10, 'start');
+
+  // Fecha (IZQUIERDA, rotada)
+  addText(5, 100, (record.fecha ? record.fecha.split('-').reverse().join('/') : 'N/A'), 8, 'start', -90);
+
+  // Código Auxiliar/Contador (DERECHA, rotada)
+  const codigoText = `${(record.codigoauxiliar || '').substring(0, 5)}/${(record.contador || '').substring(0, 3)}`;
+  addText(195, 100, codigoText, 8, 'end', 90);
+
+  // QR (CENTRO - representación simple)
+  const qrRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  qrRect.setAttribute('x', '75');
+  qrRect.setAttribute('y', '75');
+  qrRect.setAttribute('width', '50');
+  qrRect.setAttribute('height', '50');
+  qrRect.setAttribute('fill', '#f0f0f0');
+  qrRect.setAttribute('stroke', '#333');
+  qrRect.setAttribute('stroke-width', '1');
+  svg.appendChild(qrRect);
+
+  const qrText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  qrText.setAttribute('x', '100');
+  qrText.setAttribute('y', '100');
+  qrText.setAttribute('text-anchor', 'middle');
+  qrText.setAttribute('dominant-baseline', 'middle');
+  qrText.setAttribute('font-size', '8');
+  qrText.setAttribute('fill', '#666');
+  qrText.textContent = '[QR]';
+  svg.appendChild(qrText);
+
+  // Nombre Auxiliar (ABAJO)
+  addText(5, 180, record.nombreauxiliar || 'N/A', 10, 'start');
 }
 
 function generateZPLFromDesign(record, design) {

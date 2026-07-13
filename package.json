@@ -1,6 +1,6 @@
 {
   "name": "zebra-label-portal",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Portal web para impresión de etiquetas Zebra ZT231",
   "main": "server.js",
   "scripts": {
