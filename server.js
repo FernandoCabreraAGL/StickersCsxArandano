@@ -295,20 +295,32 @@ function generateZPL(record) {
 
   for (let i = 0; i < stickersPerRow; i++) {
     const baseX = i * stickerWidth;
-    const colX = baseX + paddingX;
+    const centerX = baseX + 100;
+    const centerY = 100;
 
-    // Formato mejorado - más compacto y legible
-    const nombre = record.nombretrabajador ? record.nombretrabajador.substring(0, 20) : '';
+    const nombre = record.nombretrabajador ? record.nombretrabajador.substring(0, 22) : 'N/A';
+    const auxiliar = record.nombreauxiliar ? record.nombreauxiliar.substring(0, 22) : 'N/A';
+    const codigoAux = (record.codigoauxiliar || '').substring(0, 5);
+    const contador = (record.contador || '').substring(0, 3);
 
-    zpl += `^FO${colX},${paddingY}^A0N,13,13^FD${record.codigosenasa}^FS
-^FO${colX},${17}^A0N,10,10^FD${record.codigotrabajador}^FS
-^FO${colX},${29}^A0N,8,8^FD${nombre}^FS
-^FO${colX},${40}^A0N,8,8^FD${(record.codigoauxiliar || '')}^FS
-^FO${colX},${50}^A0N,7,7^FDT:${record.turno} L:${record.lateral}^FS
-^FO${colX},${58}^A0N,7,7^FDLt:${record.lote} G:${record.grupoVariedad}^FS
-^FO${colX},${66}^A0N,8,8^FD${fechaFormatted}^FS
-^FO${colX},${76}^A0N,9,9^FDCt:${record.contador}^FS
-^FO${baseX + 98},${90}^BQN,2,2^FDMA,${record.qr}^FS
+    // ARRIBA: Nombre del Trabajador (horizontal)
+    zpl += `^FO${baseX + 5},${20}^A0N,8,8^FD${nombre}^FS
+`;
+
+    // ABAJO: Nombre del Auxiliar (horizontal)
+    zpl += `^FO${baseX + 5},${170}^A0N,8,8^FD${auxiliar}^FS
+`;
+
+    // IZQUIERDA: Fecha (vertical, rotada 270°)
+    zpl += `^FO${baseX + 5},${centerY}^A90N,7,7^FD${fechaFormatted}^FS
+`;
+
+    // DERECHA: Código Auxiliar + Contador (vertical, rotada 90°)
+    zpl += `^FO${baseX + 160},${centerY}^A90N,7,7^FD${codigoAux}/${contador}^FS
+`;
+
+    // CENTRO: QR Code (2x2 módulos)
+    zpl += `^FO${centerX - 20},${centerY - 20}^BQN,2,2^FDMA,${record.qr}^FS
 `;
   }
 
