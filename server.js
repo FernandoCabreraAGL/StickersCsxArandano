@@ -260,8 +260,30 @@ function generateZPLFromDesign(record, design) {
 
   design.elements.forEach(el => {
     if (el.type === 'text') {
-      const value = record[el.field] || '';
-      zpl += `^FO${el.x},${el.y}^A0N,${el.fontSize}^FD${value}^FS\n`;
+      let value = '';
+
+      // Manejo especial para campo combinado codigoauxiliar_contador
+      if (el.field === 'codigoauxiliar_contador') {
+        const codigoAux = (record.codigoauxiliar || '').substring(0, 5);
+        const contador = (record.contador || '').substring(0, 3);
+        value = `${codigoAux}/${contador}`;
+      } else {
+        // Convertir fecha a formato DD/MM/YYYY si es necesario
+        if (el.field === 'fecha' && record.fecha) {
+          const fechaParts = record.fecha.split('-');
+          if (fechaParts.length === 3) {
+            value = `${fechaParts[2]}/${fechaParts[1]}/${fechaParts[0]}`;
+          } else {
+            value = record.fecha;
+          }
+        } else {
+          value = record[el.field] || '';
+        }
+      }
+
+      const rotation = el.rotation || 'A0N';
+      const [fw, fh] = el.fontSize.split(',');
+      zpl += `^FO${el.x},${el.y}^${rotation},${fw},${fh}^FD${value}^FS\n`;
     } else if (el.type === 'qr') {
       const value = record[el.field] || '';
       const [size1, size2] = el.size.split(',');
