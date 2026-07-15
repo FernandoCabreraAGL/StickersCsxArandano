@@ -27,7 +27,7 @@
           "y": 105,
           "font": "A0N",
           "fontSize": "9,9",
-          "rotation": "A270N",
+          "rotation": "A0B",
           "order": 2
         },
         {
@@ -49,7 +49,7 @@
           "y": 105,
           "font": "A0N",
           "fontSize": "9,9",
-          "rotation": "A90N",
+          "rotation": "A0R",
           "order": 4
         },
         {

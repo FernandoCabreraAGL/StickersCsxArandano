@@ -281,9 +281,16 @@ function generateZPLFromDesign(record, design) {
         }
       }
 
-      const rotation = el.rotation || 'A0N';
+      // Convertir rotación a formato ZPL estándar
+      let zplRotation = 'A0N';
+      if (el.rotation === 'A90N' || el.rotation === 'A0R') {
+        zplRotation = 'A0R'; // 90° a la derecha
+      } else if (el.rotation === 'A270N' || el.rotation === 'A0B') {
+        zplRotation = 'A0B'; // 270° (90° a la izquierda)
+      }
+
       const [fw, fh] = el.fontSize.split(',');
-      zpl += `^FO${el.x},${el.y}^${rotation},${fw},${fh}^FD${value}^FS\n`;
+      zpl += `^FO${el.x},${el.y}^${zplRotation},${fw},${fh}^FD${value}^FS\n`;
     } else if (el.type === 'qr') {
       const value = record[el.field] || '';
       const [size1, size2] = el.size.split(',');

@@ -936,8 +936,8 @@ function renderEditorCanvas() {
 
     // Determinar rotación para preview
     let rotation = 0;
-    if (el.rotation === 'A90N') rotation = 90;
-    else if (el.rotation === 'A270N') rotation = 270;
+    if (el.rotation === 'A0R' || el.rotation === 'A90N') rotation = 90;
+    else if (el.rotation === 'A0B' || el.rotation === 'A270N') rotation = 270;
 
     // Grupo con rotación
     const rotatedG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -1219,13 +1219,13 @@ function renderPropertiesPanel() {
         </div>
 
         <div>
-          <label style="font-size: 12px; font-weight: 600; color: #374151;">Rotación</label>
+          <label style="font-size: 12px; font-weight: 600; color: #374151;">Rotación ZPL</label>
           <select id="propRotation" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;" onchange="updateSelectedElement('rotation', this.value)">
-            <option value="A0N" ${el.rotation === 'A0N' ? 'selected' : ''}>0° Horizontal</option>
-            <option value="A90N" ${el.rotation === 'A90N' ? 'selected' : ''}>90° Vertical (der →)</option>
-            <option value="A270N" ${el.rotation === 'A270N' ? 'selected' : ''}>270° Vertical (← izq)</option>
+            <option value="A0N" ${el.rotation === 'A0N' ? 'selected' : ''}>A0N - 0° Horizontal</option>
+            <option value="A0R" ${el.rotation === 'A0R' ? 'selected' : ''}>A0R - 90° Vertical (der →)</option>
+            <option value="A0B" ${el.rotation === 'A0B' ? 'selected' : ''}>A0B - 270° Vertical (← izq)</option>
           </select>
-          <p style="font-size: 11px; color: #999; margin-top: 6px;">💡 La rotación se ve en el canvas</p>
+          <p style="font-size: 11px; color: #999; margin-top: 6px;">💡 Rotación estándar ZPL. Se ve rotado en canvas.</p>
         </div>
       ` : `
         <div>
