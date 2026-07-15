@@ -3,7 +3,7 @@
     {
       "id": "arandano-standard",
       "name": "Etiqueta Arándano Estándar",
-      "description": "Layout v1.3.0 - QR centrado con datos radiales",
+      "description": "Layout v1.3.2 - QR 4x4 centrado, spacing 1.25mm, tamaños optimizados",
       "active": true,
       "elements": [
         {
@@ -12,9 +12,9 @@
           "label": "Nombre Trabajador (Arriba)",
           "field": "nombretrabajador",
           "x": 5,
-          "y": 20,
+          "y": 28,
           "font": "A0N",
-          "fontSize": "8,8",
+          "fontSize": "10,10",
           "rotation": "A0N",
           "order": 1
         },
@@ -23,10 +23,10 @@
           "type": "text",
           "label": "Fecha (Izquierda - Vertical)",
           "field": "fecha",
-          "x": 5,
-          "y": 100,
+          "x": 8,
+          "y": 105,
           "font": "A0N",
-          "fontSize": "7,7",
+          "fontSize": "9,9",
           "rotation": "A270N",
           "order": 2
         },
@@ -35,9 +35,9 @@
           "type": "qr",
           "label": "Código QR (Centro)",
           "field": "qr",
-          "x": 80,
-          "y": 80,
-          "size": "2,2",
+          "x": 85,
+          "y": 85,
+          "size": "4,4",
           "order": 3
         },
         {
@@ -45,10 +45,10 @@
           "type": "text",
           "label": "Código/Contador (Derecha - Vertical)",
           "field": "codigoauxiliar_contador",
-          "x": 160,
-          "y": 100,
+          "x": 192,
+          "y": 105,
           "font": "A0N",
-          "fontSize": "7,7",
+          "fontSize": "9,9",
           "rotation": "A90N",
           "order": 4
         },
@@ -58,17 +58,17 @@
           "label": "Nombre Auxiliar (Abajo)",
           "field": "nombreauxiliar",
           "x": 5,
-          "y": 170,
+          "y": 180,
           "font": "A0N",
-          "fontSize": "8,8",
+          "fontSize": "10,10",
           "rotation": "A0N",
           "order": 5
         }
       ],
-      "pageWidth": 812,
+      "pageWidth": 840,
       "pageHeight": 406,
       "createdAt": "2026-07-10T00:00:00Z",
-      "updatedAt": "2026-07-14T10:30:00Z"
+      "updatedAt": "2026-07-14T15:45:00Z"
     }
   ]
 }

@@ -186,10 +186,6 @@
           <button class="btn btn-primary" onclick="openDesignEditor()">✏️ Editar Diseño</button>
         </div>
       </div>
-      <div class="form-group">
-        <label>Copias por etiqueta</label>
-        <input type="number" id="copies" value="1" min="1" max="99">
-      </div>
     </div>
   </div>
 
@@ -542,7 +538,6 @@ function getConfig() {
 
 async function printSelected() {
   const ids = Array.from(state.selected);
-  const copies = parseInt(document.getElementById('copies').value) || 1;
   const designId = document.getElementById('designSelect').value;
 
   try {
@@ -553,20 +548,18 @@ async function printSelected() {
     // Generar ZPL para cada registro
     let printedCount = 0;
     for (const record of records) {
-      for (let c = 0; c < copies; c++) {
-        const zpl = await generateZPL(record, designId);
+      const zpl = await generateZPL(record, designId);
 
-        // Enviar al agente local
-        try {
-          const res = await fetch('http://127.0.0.1:3001/api/print', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ zpl })
-          });
-          if (res.ok) printedCount++;
-        } catch (localErr) {
-          throw new Error('Agente local no disponible. ¿Está ejecutándose el .exe en PC #2?');
-        }
+      // Enviar al agente local
+      try {
+        const res = await fetch('http://127.0.0.1:3001/api/print', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ zpl })
+        });
+        if (res.ok) printedCount++;
+      } catch (localErr) {
+        throw new Error('Agente local no disponible. ¿Está ejecutándose el .exe en PC #2?');
       }
     }
 
@@ -596,7 +589,6 @@ function closeConfirmModal() { document.getElementById('confirmModal').classList
 
 async function printAll() {
   closeConfirmModal();
-  const copies = parseInt(document.getElementById('copies').value) || 1;
   const designId = document.getElementById('designSelect').value;
 
   try {
@@ -608,19 +600,17 @@ async function printAll() {
       const result = await res.json();
 
       for (const record of result.data) {
-        for (let c = 0; c < copies; c++) {
-          const zpl = await generateZPL(record, designId);
+        const zpl = await generateZPL(record, designId);
 
-          try {
-            const printRes = await fetch('http://127.0.0.1:3001/api/print', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ zpl })
-            });
-            if (printRes.ok) printedCount++;
-          } catch (localErr) {
-            throw new Error('Agente local no disponible');
-          }
+        try {
+          const printRes = await fetch('http://127.0.0.1:3001/api/print', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ zpl })
+          });
+          if (printRes.ok) printedCount++;
+        } catch (localErr) {
+          throw new Error('Agente local no disponible');
         }
       }
     }

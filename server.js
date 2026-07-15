@@ -306,43 +306,40 @@ function generateZPL(record) {
 
   const stickersPerRow = 4;
   const stickerWidth = 200;
-  const paddingX = 3;
-  const paddingY = 2;
+  const spacing = 10; // 1.25mm = 10 dots
 
   let zpl = `^XA
 ^CI28
-^PW812
+^PW840
 ^LL406
 `;
 
   for (let i = 0; i < stickersPerRow; i++) {
-    const baseX = i * stickerWidth;
-    const centerX = baseX + 100;
-    const centerY = 100;
+    const baseX = i * (stickerWidth + spacing);
 
     const nombre = record.nombretrabajador ? record.nombretrabajador.substring(0, 22) : 'N/A';
     const auxiliar = record.nombreauxiliar ? record.nombreauxiliar.substring(0, 22) : 'N/A';
     const codigoAux = (record.codigoauxiliar || '').substring(0, 5);
     const contador = (record.contador || '').substring(0, 3);
 
-    // ARRIBA: Nombre del Trabajador (horizontal)
-    zpl += `^FO${baseX + 5},${20}^A0N,8,8^FD${nombre}^FS
+    // ARRIBA: Nombre del Trabajador (horizontal, Y=28)
+    zpl += `^FO${baseX + 5},${28}^A0N,10,10^FD${nombre}^FS
 `;
 
-    // ABAJO: Nombre del Auxiliar (horizontal)
-    zpl += `^FO${baseX + 5},${170}^A0N,8,8^FD${auxiliar}^FS
+    // IZQUIERDA: Fecha (vertical, rotada 270°, Y=105)
+    zpl += `^FO${baseX + 8},${105}^A270N,9,9^FD${fechaFormatted}^FS
 `;
 
-    // IZQUIERDA: Fecha (vertical, rotada 270°)
-    zpl += `^FO${baseX + 5},${centerY}^A90N,7,7^FD${fechaFormatted}^FS
+    // CENTRO: QR Code (4x4 módulos, X=85, Y=85)
+    zpl += `^FO${baseX + 85},${85}^BQN,4,4^FDMA,${record.qr}^FS
 `;
 
-    // DERECHA: Código Auxiliar + Contador (vertical, rotada 90°)
-    zpl += `^FO${baseX + 160},${centerY}^A90N,7,7^FD${codigoAux}/${contador}^FS
+    // DERECHA: Código Auxiliar + Contador (vertical, rotada 90°, Y=105)
+    zpl += `^FO${baseX + 192},${105}^A90N,9,9^FD${codigoAux}/${contador}^FS
 `;
 
-    // CENTRO: QR Code (2x2 módulos)
-    zpl += `^FO${centerX - 20},${centerY - 20}^BQN,2,2^FDMA,${record.qr}^FS
+    // ABAJO: Nombre del Auxiliar (horizontal, Y=180)
+    zpl += `^FO${baseX + 5},${180}^A0N,10,10^FD${auxiliar}^FS
 `;
   }
 
@@ -354,10 +351,9 @@ function generateZPL(record) {
 }
 
 app.post('/api/print', async (req, res) => {
-  const { ids, copies, designId } = req.body;
+  const { ids, designId } = req.body;
   const ip = selectedPrinter.ip;
   const port = selectedPrinter.port;
-  const numCopies = copies || 1;
 
   if (!ids || !ids.length) {
     return res.status(400).json({ error: 'No se seleccionaron registros' });
@@ -373,13 +369,12 @@ app.post('/api/print', async (req, res) => {
   let zplAll = '';
   for (const record of records) {
     let zpl = design ? generateZPLFromDesign(record, design) : generateZPL(record);
-    zpl = zpl.replace(/\^PQ1/, `^PQ${numCopies}`);
     zplAll += zpl;
   }
 
   try {
     await sendToPrinter(ip, port, zplAll);
-    res.json({ success: true, printed: records.length, copies: numCopies });
+    res.json({ success: true, printed: records.length });
   } catch (err) {
     res.status(500).json({ error: `Error de conexión con impresora (${ip}:${port}): ${err.message}` });
   }
@@ -397,10 +392,8 @@ app.post('/api/preview-zpl', (req, res) => {
 });
 
 app.post('/api/print-all', async (req, res) => {
-  const { copies } = req.body;
   const ip = selectedPrinter.ip;
   const port = selectedPrinter.port;
-  const numCopies = copies || 1;
 
   if (!currentData.length) {
     return res.status(400).json({ error: 'No hay datos cargados' });
@@ -409,13 +402,12 @@ app.post('/api/print-all', async (req, res) => {
   let zplAll = '';
   for (const record of currentData) {
     let zpl = generateZPL(record);
-    zpl = zpl.replace(/\^PQ1/, `^PQ${numCopies}`);
     zplAll += zpl;
   }
 
   try {
     await sendToPrinter(ip, port, zplAll);
-    res.json({ success: true, printed: currentData.length, copies: numCopies });
+    res.json({ success: true, printed: currentData.length });
   } catch (err) {
     res.status(500).json({ error: `Error de conexión con impresora (${ip}:${port}): ${err.message}` });
   }
