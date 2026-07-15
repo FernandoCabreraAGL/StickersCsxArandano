@@ -305,15 +305,10 @@ function generateZPLFromDesign(record, design) {
   return zpl;
 }
 
-function generateZPL(record) {
-  const fechaParts = record.fecha.split('-');
-  const fechaFormatted = fechaParts.length === 3
-    ? `${fechaParts[2]}/${fechaParts[1]}/${fechaParts[0]}`
-    : record.fecha;
-
-  const stickersPerRow = 4;
+// Generar 1 página con hasta 4 registros diferentes
+function generateZPLPage(recordsArray, design) {
   const stickerWidth = 200;
-  const spacing = 10; // 1.25mm = 10 dots
+  const spacing = 10;
 
   let zpl = `^XA
 ^CI28
@@ -321,40 +316,78 @@ function generateZPL(record) {
 ^LL406
 `;
 
-  for (let i = 0; i < stickersPerRow; i++) {
+  // Completar array con nulls si tiene menos de 4 registros
+  while (recordsArray.length < 4) {
+    recordsArray.push(null);
+  }
+
+  for (let i = 0; i < 4; i++) {
+    const record = recordsArray[i];
     const baseX = i * (stickerWidth + spacing);
 
-    const nombre = record.nombretrabajador ? record.nombretrabajador.substring(0, 22) : 'N/A';
-    const auxiliar = record.nombreauxiliar ? record.nombreauxiliar.substring(0, 22) : 'N/A';
+    if (!record) continue; // Saltar si no hay registro
+
+    // Convertir fecha
+    const fechaParts = record.fecha.split('-');
+    const fechaFormatted = fechaParts.length === 3
+      ? `${fechaParts[2]}/${fechaParts[1]}/${fechaParts[0]}`
+      : record.fecha;
+
+    const nombre = (record.nombretrabajador || '').substring(0, 22) || 'N/A';
+    const auxiliar = (record.nombreauxiliar || '').substring(0, 22) || 'N/A';
     const codigoAux = (record.codigoauxiliar || '').substring(0, 5);
     const contador = (record.contador || '').substring(0, 3);
 
-    // ARRIBA: Nombre del Trabajador (horizontal, Y=28)
-    zpl += `^FO${baseX + 5},${28}^A0N,10,10^FD${nombre}^FS
-`;
+    // ARRIBA: Nombre del Trabajador (Y=28)
+    zpl += `^FO${baseX + 5},${28}^A0N,10,10^FD${nombre}^FS\n`;
 
-    // IZQUIERDA: Fecha (vertical, rotada 270°, Y=105)
-    zpl += `^FO${baseX + 8},${105}^A270N,9,9^FD${fechaFormatted}^FS
-`;
+    // IZQUIERDA: Fecha (Y=105, rotación 270°)
+    zpl += `^FO${baseX + 8},${105}^A0B,9,9^FD${fechaFormatted}^FS\n`;
 
-    // CENTRO: QR Code (4x4 módulos, X=85, Y=85)
-    zpl += `^FO${baseX + 85},${85}^BQN,4,4^FDMA,${record.qr}^FS
-`;
+    // CENTRO: QR Code (4x4)
+    zpl += `^FO${baseX + 85},${85}^BQN,4,4^FDMA,${record.qr}^FS\n`;
 
-    // DERECHA: Código Auxiliar + Contador (vertical, rotada 90°, Y=105)
-    zpl += `^FO${baseX + 192},${105}^A90N,9,9^FD${codigoAux}/${contador}^FS
-`;
+    // DERECHA: Código/Contador (Y=105, rotación 90°)
+    zpl += `^FO${baseX + 192},${105}^A0R,9,9^FD${codigoAux}/${contador}^FS\n`;
 
-    // ABAJO: Nombre del Auxiliar (horizontal, Y=180)
-    zpl += `^FO${baseX + 5},${180}^A0N,10,10^FD${auxiliar}^FS
-`;
+    // ABAJO: Nombre del Auxiliar (Y=180)
+    zpl += `^FO${baseX + 5},${180}^A0N,10,10^FD${auxiliar}^FS\n`;
   }
 
-  zpl += `^PQ1
-^XZ
-`;
-
+  zpl += `^PQ1\n^XZ\n`;
   return zpl;
+}
+
+// Generar ZPL agrupado por nombreauxiliar
+function generateZPLGroupedByAuxiliar(records, design) {
+  // Agrupar por nombreauxiliar
+  const groups = {};
+  for (const record of records) {
+    const key = record.nombreauxiliar || 'SIN_AUXILIAR';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(record);
+  }
+
+  let zplAll = '';
+
+  // Procesar cada grupo
+  for (const auxiliar in groups) {
+    const groupRecords = groups[auxiliar];
+
+    // Dividir en chunks de 4
+    for (let i = 0; i < groupRecords.length; i += 4) {
+      const chunk = groupRecords.slice(i, i + 4);
+      const pageZpl = generateZPLPage(chunk, design);
+      zplAll += pageZpl;
+    }
+  }
+
+  return zplAll;
+}
+
+// Mantener la función antigua para compatibilidad (genera 4 stickers del mismo registro)
+function generateZPL(record) {
+  return generateZPLPage([record, record, record, record], null);
 }
 
 app.post('/api/print', async (req, res) => {
@@ -373,11 +406,8 @@ app.post('/api/print', async (req, res) => {
 
   const design = designId ? designs.find(d => d.id === designId) : null;
 
-  let zplAll = '';
-  for (const record of records) {
-    let zpl = design ? generateZPLFromDesign(record, design) : generateZPL(record);
-    zplAll += zpl;
-  }
+  // Generar ZPL agrupado por nombreauxiliar
+  let zplAll = generateZPLGroupedByAuxiliar(records, design);
 
   try {
     await sendToPrinter(ip, port, zplAll);
@@ -393,7 +423,8 @@ app.post('/api/preview-zpl', (req, res) => {
   if (!record) return res.status(404).json({ error: 'Registro no encontrado' });
 
   const design = designId ? designs.find(d => d.id === designId) : null;
-  const zpl = design ? generateZPLFromDesign(record, design) : generateZPL(record);
+  // Para preview, mostrar 1 página con el registro 4 veces (para compatibilidad)
+  const zpl = design ? generateZPLFromDesign(record, design) : generateZPLPage([record, record, record, record], design);
 
   res.json({ zpl, record });
 });
@@ -406,11 +437,8 @@ app.post('/api/print-all', async (req, res) => {
     return res.status(400).json({ error: 'No hay datos cargados' });
   }
 
-  let zplAll = '';
-  for (const record of currentData) {
-    let zpl = generateZPL(record);
-    zplAll += zpl;
-  }
+  // Generar ZPL agrupado por nombreauxiliar
+  let zplAll = generateZPLGroupedByAuxiliar(currentData, null);
 
   try {
     await sendToPrinter(ip, port, zplAll);
