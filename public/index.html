@@ -933,45 +933,100 @@ function renderEditorCanvas() {
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     g.setAttribute('class', 'editor-element');
     g.setAttribute('data-id', el.id);
-    g.setAttribute('cursor', 'move');
+
+    // Determinar rotación para preview
+    let rotation = 0;
+    if (el.rotation === 'A90N') rotation = 90;
+    else if (el.rotation === 'A270N') rotation = 270;
+
+    // Grupo con rotación
+    const rotatedG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    rotatedG.setAttribute('transform', `rotate(${rotation} ${el.x} ${el.y})`);
 
     // Rectángulo base
     const isSelected = selectedElement && selectedElement.id === el.id;
+    const [fw, fh] = el.fontSize ? el.fontSize.split(',').map(Number) : [10, 10];
+    const width = el.type === 'qr' ? Math.round(fw * 2.5) : Math.round(fw * 1.2 * 6);
+    const height = el.type === 'qr' ? Math.round(fh * 2.5) : Math.round(fh * 1.2);
+
     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    rect.setAttribute('x', el.x - 20);
-    rect.setAttribute('y', el.y - 10);
-    rect.setAttribute('width', el.type === 'qr' ? 50 : 80);
-    rect.setAttribute('height', el.type === 'qr' ? 50 : 20);
+    rect.setAttribute('x', el.x - width / 2);
+    rect.setAttribute('y', el.y - height / 2);
+    rect.setAttribute('width', width);
+    rect.setAttribute('height', height);
     rect.setAttribute('fill', isSelected ? '#bfdbfe' : '#dbeafe');
     rect.setAttribute('stroke', isSelected ? '#0284c7' : '#0ea5e9');
     rect.setAttribute('stroke-width', isSelected ? '2' : '1');
     rect.setAttribute('rx', '3');
     rect.setAttribute('cursor', 'move');
     rect.style.pointerEvents = 'auto';
-    g.appendChild(rect);
+    rotatedG.appendChild(rect);
 
-    // Texto
+    // Texto rotado también
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     text.setAttribute('x', el.x);
     text.setAttribute('y', el.y);
-    text.setAttribute('font-size', '10');
+    text.setAttribute('font-size', Math.min(fw, 10));
     text.setAttribute('fill', '#0c4a6e');
+    text.setAttribute('font-weight', el.fontWeight || 'normal');
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('dominant-baseline', 'middle');
     text.setAttribute('cursor', 'move');
     text.setAttribute('pointer-events', 'none');
-    text.textContent = el.label.substring(0, 8);
-    g.appendChild(text);
+    text.textContent = el.label.substring(0, 10);
+    rotatedG.appendChild(text);
 
-    // Punto de anclaje
+    g.appendChild(rotatedG);
+
+    // Punto de anclaje (sin rotación)
     const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     dot.setAttribute('cx', el.x);
     dot.setAttribute('cy', el.y);
-    dot.setAttribute('r', '2');
-    dot.setAttribute('fill', '#0284c7');
+    dot.setAttribute('r', '3');
+    dot.setAttribute('fill', isSelected ? '#dc2626' : '#0284c7');
+    dot.setAttribute('stroke', 'white');
+    dot.setAttribute('stroke-width', '1');
     dot.setAttribute('cursor', 'move');
-    dot.setAttribute('pointer-events', 'none');
+    dot.setAttribute('pointer-events', 'auto');
     g.appendChild(dot);
+
+    // Handles de redimensionamiento si está seleccionado
+    if (isSelected && el.type === 'text') {
+      const handleSize = 6;
+      const handles = [
+        { pos: 'nw', x: el.x - width / 2, y: el.y - height / 2 },
+        { pos: 'n', x: el.x, y: el.y - height / 2 },
+        { pos: 'ne', x: el.x + width / 2, y: el.y - height / 2 },
+        { pos: 'e', x: el.x + width / 2, y: el.y },
+        { pos: 'se', x: el.x + width / 2, y: el.y + height / 2 },
+        { pos: 's', x: el.x, y: el.y + height / 2 },
+        { pos: 'sw', x: el.x - width / 2, y: el.y + height / 2 },
+        { pos: 'w', x: el.x - width / 2, y: el.y }
+      ];
+
+      handles.forEach(h => {
+        const handle = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        handle.setAttribute('x', h.x - handleSize / 2);
+        handle.setAttribute('y', h.y - handleSize / 2);
+        handle.setAttribute('width', handleSize);
+        handle.setAttribute('height', handleSize);
+        handle.setAttribute('fill', '#06b6d4');
+        handle.setAttribute('stroke', 'white');
+        handle.setAttribute('stroke-width', '1');
+        handle.setAttribute('cursor', `${h.pos}-resize`);
+        handle.setAttribute('data-handle', h.pos);
+        handle.setAttribute('data-element-id', el.id);
+        handle.style.pointerEvents = 'auto';
+
+        handle.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          makeResizable(handle, el, h.pos);
+        });
+
+        g.appendChild(handle);
+      });
+    }
 
     // Click para seleccionar
     g.addEventListener('click', () => selectElement(el));
@@ -984,6 +1039,53 @@ function renderEditorCanvas() {
 }
 
 let currentDraggingElement = null;
+
+function makeResizable(handle, dataEl, position) {
+  const svg = document.getElementById('editorCanvas');
+  const rect = svg.getBoundingClientRect();
+
+  let startX, startY, startFW, startFH;
+  const [fw, fh] = dataEl.fontSize.split(',').map(Number);
+
+  const moveHandler = (e) => {
+    e.preventDefault();
+    const deltaX = e.clientX - startX;
+    const deltaY = e.clientY - startY;
+
+    let newFW = startFW;
+    let newFH = startFH;
+
+    // Cambiar tamaño según la dirección
+    if (position.includes('e')) newFW = Math.max(4, startFW + Math.round(deltaX / 5));
+    if (position.includes('s')) newFH = Math.max(4, startFH + Math.round(deltaY / 5));
+    if (position.includes('w')) newFW = Math.max(4, startFW - Math.round(deltaX / 5));
+    if (position.includes('n')) newFH = Math.max(4, startFH - Math.round(deltaY / 5));
+
+    dataEl.fontSize = `${newFW},${newFH}`;
+    const idx = currentDesign.elements.findIndex(el => el.id === dataEl.id);
+    if (idx >= 0) currentDesign.elements[idx] = dataEl;
+
+    if (selectedElement && selectedElement.id === dataEl.id) {
+      selectedElement = JSON.parse(JSON.stringify(dataEl));
+    }
+
+    renderEditorCanvas();
+    renderPropertiesPanel();
+  };
+
+  const upHandler = () => {
+    document.removeEventListener('mousemove', moveHandler);
+    document.removeEventListener('mouseup', upHandler);
+  };
+
+  startX = event.clientX;
+  startY = event.clientY;
+  startFW = fw;
+  startFH = fh;
+
+  document.addEventListener('mousemove', moveHandler);
+  document.addEventListener('mouseup', upHandler);
+}
 
 function makeDraggable(element, dataEl) {
   element.addEventListener('mousedown', (e) => {
@@ -1073,14 +1175,46 @@ function renderPropertiesPanel() {
       </div>
 
       ${el.type === 'text' ? `
+        <div>
+          <label style="font-size: 12px; font-weight: 600; color: #374151;">Fuente</label>
+          <select id="propFont" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;" onchange="updateSelectedElement('fontFamily', this.value)">
+            <option value="default" ${!el.fontFamily || el.fontFamily === 'default' ? 'selected' : ''}>Arial / Helvética</option>
+            <option value="monospace" ${el.fontFamily === 'monospace' ? 'selected' : ''}>Monoespaciada</option>
+            <option value="serif" ${el.fontFamily === 'serif' ? 'selected' : ''}>Con Serifs</option>
+            <option value="sans-serif" ${el.fontFamily === 'sans-serif' ? 'selected' : ''}>Sin Serifs</option>
+          </select>
+        </div>
+
+        <div style="display: flex; gap: 6px;">
+          <button class="btn btn-sm" style="flex: 1; background: ${el.fontWeight === 'bold' ? '#3b82f6' : '#f3f4f6'}; border: 1px solid #d1d5db; color: ${el.fontWeight === 'bold' ? 'white' : '#374151'}; font-weight: bold;" onclick="toggleFontStyle('fontWeight', 'bold')"><b>B</b></button>
+          <button class="btn btn-sm" style="flex: 1; background: ${el.fontStyle === 'italic' ? '#3b82f6' : '#f3f4f6'}; border: 1px solid #d1d5db; color: ${el.fontStyle === 'italic' ? 'white' : '#374151'}; font-style: italic;" onclick="toggleFontStyle('fontStyle', 'italic')"><i>I</i></button>
+          <button class="btn btn-sm" style="flex: 1; background: ${el.textDecoration === 'underline' ? '#3b82f6' : '#f3f4f6'}; border: 1px solid #d1d5db; color: ${el.textDecoration === 'underline' ? 'white' : '#374151'}; text-decoration: underline;" onclick="toggleFontStyle('textDecoration', 'underline')<u>U</u></button>
+        </div>
+
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
           <div>
             <label style="font-size: 12px; font-weight: 600; color: #374151;">Ancho (pt)</label>
-            <input type="number" value="${fw}" id="propFW" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px;" onchange="updateFontSize(this.value, ${fh})">
+            <div style="display: flex; gap: 4px;">
+              <input type="number" value="${fw}" id="propFW" style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;" onchange="updateFontSize(this.value, ${fh})">
+              <button class="btn btn-sm" style="padding: 6px 8px;" onclick="changeFontSize(-1)">−</button>
+              <button class="btn btn-sm" style="padding: 6px 8px;" onclick="changeFontSize(1)">+</button>
+            </div>
           </div>
           <div>
             <label style="font-size: 12px; font-weight: 600; color: #374151;">Alto (pt)</label>
-            <input type="number" value="${fh}" id="propFH" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px;" onchange="updateFontSize(${fw}, this.value)">
+            <div style="display: flex; gap: 4px;">
+              <input type="number" value="${fh}" id="propFH" style="flex: 1; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;" onchange="updateFontSize(${fw}, this.value)">
+              <button class="btn btn-sm" style="padding: 6px 8px;" onclick="changeFontSize(-1)">−</button>
+              <button class="btn btn-sm" style="padding: 6px 8px;" onclick="changeFontSize(1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size: 12px; font-weight: 600; color: #374151;">📏 Redimensionar</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 11px; color: #6b7280;">
+            <span>Arrastra los handles azules en el canvas para redimensionar</span>
+            <span>O usa los botones ±</span>
           </div>
         </div>
 
@@ -1088,19 +1222,16 @@ function renderPropertiesPanel() {
           <label style="font-size: 12px; font-weight: 600; color: #374151;">Rotación</label>
           <select id="propRotation" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;" onchange="updateSelectedElement('rotation', this.value)">
             <option value="A0N" ${el.rotation === 'A0N' ? 'selected' : ''}>0° Horizontal</option>
-            <option value="A90N" ${el.rotation === 'A90N' ? 'selected' : ''}>90° Vertical (der)</option>
-            <option value="A270N" ${el.rotation === 'A270N' ? 'selected' : ''}>270° Vertical (izq)</option>
+            <option value="A90N" ${el.rotation === 'A90N' ? 'selected' : ''}>90° Vertical (der →)</option>
+            <option value="A270N" ${el.rotation === 'A270N' ? 'selected' : ''}>270° Vertical (← izq)</option>
           </select>
-        </div>
-
-        <div style="display: flex; gap: 8px;">
-          <button class="btn btn-sm" style="flex: 1; background: #f3f4f6; border: 1px solid #d1d5db; color: #374151;" onclick="changeFontSize(-1)">− Disminuir</button>
-          <button class="btn btn-sm" style="flex: 1; background: #f3f4f6; border: 1px solid #d1d5db; color: #374151;" onclick="changeFontSize(1)">+ Aumentar</button>
+          <p style="font-size: 11px; color: #999; margin-top: 6px;">💡 La rotación se ve en el canvas</p>
         </div>
       ` : `
         <div>
-          <label style="font-size: 12px; font-weight: 600; color: #374151;">Módulos</label>
-          <input type="text" value="${el.size || '4,4'}" id="propSize" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px;" onchange="updateSelectedElement('size', this.value)">
+          <label style="font-size: 12px; font-weight: 600; color: #374151;">Módulos QR</label>
+          <input type="text" value="${el.size || '4,4'}" id="propSize" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px;" placeholder="ej: 4,4" onchange="updateSelectedElement('size', this.value)">
+          <p style="font-size: 11px; color: #999; margin-top: 4px;">Formato: ancho,alto (ej: 3,3 o 5,5)</p>
         </div>
       `}
 
@@ -1132,6 +1263,19 @@ function changeFontSize(delta) {
   const newW = Math.max(1, w + delta);
   const newH = Math.max(1, h + delta);
   updateFontSize(newW, newH);
+  renderPropertiesPanel();
+}
+
+function toggleFontStyle(prop, value) {
+  if (!selectedElement || selectedElement.type !== 'text') return;
+
+  if (selectedElement[prop] === value) {
+    selectedElement[prop] = 'normal';
+  } else {
+    selectedElement[prop] = value;
+  }
+
+  updateSelectedElement(prop, selectedElement[prop]);
   renderPropertiesPanel();
 }
 
