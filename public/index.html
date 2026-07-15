@@ -280,43 +280,63 @@
   </div>
 </div>
 
-<!-- Design Editor Modal -->
+<!-- Design Editor Modal - V2 with Drag & Drop -->
 <div class="modal-overlay" id="designEditorModal">
-  <div class="modal" style="max-width: 1200px;">
-    <h3>✏️ Editor de Diseño</h3>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 16px;">
-      <div>
-        <h4>Elementos</h4>
-        <div style="max-height: 400px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px;">
-          <table style="width: 100%; font-size: 12px;">
-            <thead>
-              <tr style="background: #f3f4f6; position: sticky; top: 0;">
-                <th style="padding: 8px; text-align: left;">Elemento</th>
-                <th style="padding: 8px;">X</th>
-                <th style="padding: 8px;">Y</th>
-                <th style="padding: 8px;">Acciones</th>
-              </tr>
-            </thead>
-            <tbody id="elementsTableBody"></tbody>
-          </table>
+  <div class="modal" style="max-width: 1400px; max-height: 95vh;">
+    <h3>✏️ Editor de Diseño - Drag & Drop</h3>
+
+    <div style="margin-top: 16px; padding: 12px; background: #f3f4f6; border-radius: 8px;">
+      <label style="font-weight: 600; color: #111827;">Espaciamiento entre stickers (horizontal)</label>
+      <div style="display: flex; gap: 12px; align-items: center; margin-top: 8px;">
+        <div>
+          <label style="font-size: 12px; color: #6b7280;">Milímetros (mm)</label>
+          <input type="number" id="spacingMM" value="1.25" step="0.1" min="0" max="10" style="width: 100px; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;" onchange="updateSpacingDots()">
         </div>
-        <button class="btn btn-success" style="margin-top: 12px; width: 100%;" onclick="addNewElement()">➕ Agregar</button>
-      </div>
-      <div>
-        <h4>Vista Previa ZPL</h4>
-        <div style="background: #f3f4f6; border-radius: 8px; padding: 12px; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 11px; white-space: pre-wrap;" id="previewZPL"></div>
-      </div>
-      <div style="margin-top: 16px;">
-        <h4>Vista Previa Visual (v1.3.0)</h4>
-        <svg id="stickerPreview" width="200" height="200" style="border: 2px solid #333; border-radius: 8px; background: white;"></svg>
+        <div>
+          <label style="font-size: 12px; color: #6b7280;">Dots (automático)</label>
+          <input type="number" id="spacingDots" value="10" readonly style="width: 100px; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; background: #e5e7eb; color: #6b7280;">
+        </div>
+        <div style="font-size: 12px; color: #6b7280; margin-top: 20px;">
+          PageWidth: <span id="pageWidthDisplay">840</span> dots
+        </div>
       </div>
     </div>
-    <div style="margin-top: 16px;">
-      <button class="btn btn-outline" onclick="toggleDeveloperMode()">👨‍💻 Modo Desarrollador</button>
+
+    <div style="display: grid; grid-template-columns: 1fr 300px; gap: 20px; margin-top: 16px; height: 600px;">
+      <!-- Canvas Visual -->
+      <div style="border: 2px solid #333; border-radius: 8px; background: white; overflow: auto; position: relative;">
+        <div style="padding: 20px;">
+          <svg id="editorCanvas" width="840" height="406" style="border: 1px dashed #d1d5db; background: #fafafa; cursor: move;">
+            <!-- Stickers grid será generado por JS -->
+          </svg>
+        </div>
+      </div>
+
+      <!-- Panel de Propiedades -->
+      <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; overflow-y: auto; background: white;">
+        <h4 style="margin-top: 0;">Propiedades</h4>
+        <div id="propertiesPanel" style="font-size: 13px;">
+          <p style="color: #999; text-align: center; margin: 40px 0;">Selecciona un elemento en el canvas</p>
+        </div>
+      </div>
     </div>
-    <div class="modal-actions">
+
+    <!-- Elementos List -->
+    <div style="margin-top: 16px; padding: 12px; background: #f9fafb; border-radius: 8px;">
+      <h4 style="margin-top: 0;">Elementos</h4>
+      <div id="elementsList" style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <!-- Elementos serán listados aquí -->
+      </div>
+      <div style="margin-top: 12px; display: flex; gap: 8px;">
+        <button class="btn btn-success" onclick="addElementType('text')">➕ Agregar Texto</button>
+        <button class="btn btn-success" onclick="addElementType('qr')">➕ Agregar QR</button>
+      </div>
+    </div>
+
+    <div class="modal-actions" style="margin-top: 16px;">
+      <button class="btn btn-outline" onclick="toggleDeveloperMode()">👨‍💻 JSON</button>
       <button class="btn btn-outline" onclick="closeDesignEditor()">Cerrar</button>
-      <button class="btn btn-primary" onclick="saveDesignChanges()">💾 Guardar</button>
+      <button class="btn btn-primary" onclick="saveDesignChanges()">💾 Guardar Cambios</button>
     </div>
   </div>
 </div>
@@ -755,8 +775,10 @@ window.addEventListener('load', () => {
   loadDesigns();
 });
 
-// === EDITOR DE DISEÑOS ===
+// === EDITOR DE DISEÑOS V2 - CON DRAG & DROP ===
 let currentDesign = null;
+let selectedElement = null;
+let dbFields = ['nombretrabajador', 'fecha', 'codigoauxiliar', 'contador', 'nombreauxiliar', 'qr', 'codigosenasa', 'codigotrabajador', 'turno', 'lateral', 'lote', 'grupoVariedad'];
 
 async function loadDesigns() {
   try {
@@ -789,8 +811,8 @@ async function openDesignEditor() {
 
     if (!currentDesign) throw new Error('Diseño no encontrado');
 
-    renderElementsTable();
-    updatePreview();
+    selectedElement = null;
+    renderDesignEditor();
     document.getElementById('designEditorModal').classList.add('active');
   } catch (err) {
     toast('Error: ' + err.message, 'error');
@@ -800,13 +822,14 @@ async function openDesignEditor() {
 function closeDesignEditor() {
   document.getElementById('designEditorModal').classList.remove('active');
   currentDesign = null;
+  selectedElement = null;
 }
 
 function openCreateDesignModal() {
   document.getElementById('createDesignModal').classList.add('active');
   document.getElementById('newDesignName').value = '';
   document.getElementById('newDesignDesc').value = '';
-  document.getElementById('newDesignWidth').value = '812';
+  document.getElementById('newDesignWidth').value = '840';
   document.getElementById('newDesignHeight').value = '406';
 }
 
@@ -817,7 +840,7 @@ function closeCreateDesignModal() {
 async function createNewDesign() {
   const name = document.getElementById('newDesignName').value.trim();
   const description = document.getElementById('newDesignDesc').value.trim();
-  const pageWidth = parseInt(document.getElementById('newDesignWidth').value) || 812;
+  const pageWidth = parseInt(document.getElementById('newDesignWidth').value) || 840;
   const pageHeight = parseInt(document.getElementById('newDesignHeight').value) || 406;
 
   if (!name) {
@@ -855,84 +878,325 @@ async function createNewDesign() {
   }
 }
 
-function renderElementsTable() {
+function renderDesignEditor() {
   if (!currentDesign) return;
-  const tbody = document.getElementById('elementsTableBody');
-  tbody.innerHTML = currentDesign.elements.map(el => `
-    <tr style="border-bottom: 1px solid #e5e7eb;">
-      <td style="padding: 8px; font-weight: 500;">${el.label}</td>
-      <td style="padding: 8px;"><input type="number" value="${el.x}" style="width: 50px; padding: 4px; border: 1px solid #d1d5db; border-radius: 4px;" onchange="updateElement(${el.id}, 'x', this.value)"></td>
-      <td style="padding: 8px;"><input type="number" value="${el.y}" style="width: 50px; padding: 4px; border: 1px solid #d1d5db; border-radius: 4px;" onchange="updateElement(${el.id}, 'y', this.value)"></td>
-      <td style="padding: 8px;"><button class="btn btn-sm btn-outline" onclick="editElement(${el.id})">✏️</button></td>
-      <td style="padding: 8px;"><button class="btn btn-sm btn-danger" onclick="deleteElement(${el.id})">🗑️</button></td>
-    </tr>
-  `).join('');
+
+  // Actualizar spacing
+  const mmPerDot = 1 / 8;
+  const currentSpacing = (currentDesign.pageWidth - 800) / 3;
+  const spacingMM = (currentSpacing * mmPerDot).toFixed(2);
+  document.getElementById('spacingMM').value = spacingMM;
+  document.getElementById('spacingDots').value = Math.round(currentSpacing);
+  document.getElementById('pageWidthDisplay').textContent = currentDesign.pageWidth;
+
+  // Renderizar canvas con stickers
+  renderEditorCanvas();
+
+  // Renderizar lista de elementos
+  renderElementsList();
+
+  // Renderizar propiedades del elemento seleccionado
+  renderPropertiesPanel();
 }
 
-function addNewElement() {
-  if (!currentDesign) return;
-  const newId = Math.max(...currentDesign.elements.map(e => e.id), 0) + 1;
-  currentDesign.elements.push({
-    id: newId,
-    type: 'text',
-    label: `Elemento ${newId}`,
-    field: `field_${newId}`,
-    x: 30,
-    y: 30 + (currentDesign.elements.length * 35),
-    font: 'A0N',
-    fontSize: '24,24',
-    order: currentDesign.elements.length + 1
+function renderEditorCanvas() {
+  const svg = document.getElementById('editorCanvas');
+  svg.innerHTML = '';
+
+  // Fondo
+  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  bg.setAttribute('width', currentDesign.pageWidth);
+  bg.setAttribute('height', currentDesign.pageHeight);
+  bg.setAttribute('fill', '#fafafa');
+  bg.setAttribute('stroke', '#d1d5db');
+  bg.setAttribute('stroke-width', '1');
+  svg.appendChild(bg);
+
+  // Grillas de stickers
+  const spacingDots = (currentDesign.pageWidth - 800) / 3;
+  for (let i = 0; i < 4; i++) {
+    const x = i * (200 + spacingDots);
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', x);
+    rect.setAttribute('y', 0);
+    rect.setAttribute('width', 200);
+    rect.setAttribute('height', currentDesign.pageHeight);
+    rect.setAttribute('fill', 'none');
+    rect.setAttribute('stroke', '#e5e7eb');
+    rect.setAttribute('stroke-width', '1');
+    rect.setAttribute('stroke-dasharray', '5,5');
+    svg.appendChild(rect);
+  }
+
+  // Elementos del diseño
+  currentDesign.elements.forEach((el, idx) => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('class', 'editor-element');
+    g.setAttribute('data-id', el.id);
+    g.setAttribute('cursor', 'move');
+
+    // Rectángulo base
+    const isSelected = selectedElement && selectedElement.id === el.id;
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', el.x - 20);
+    rect.setAttribute('y', el.y - 10);
+    rect.setAttribute('width', el.type === 'qr' ? 50 : 80);
+    rect.setAttribute('height', el.type === 'qr' ? 50 : 20);
+    rect.setAttribute('fill', isSelected ? '#bfdbfe' : '#dbeafe');
+    rect.setAttribute('stroke', isSelected ? '#0284c7' : '#0ea5e9');
+    rect.setAttribute('stroke-width', isSelected ? '2' : '1');
+    rect.setAttribute('rx', '3');
+    rect.setAttribute('cursor', 'move');
+    rect.style.pointerEvents = 'auto';
+    g.appendChild(rect);
+
+    // Texto
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', el.x);
+    text.setAttribute('y', el.y);
+    text.setAttribute('font-size', '10');
+    text.setAttribute('fill', '#0c4a6e');
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'middle');
+    text.setAttribute('cursor', 'move');
+    text.setAttribute('pointer-events', 'none');
+    text.textContent = el.label.substring(0, 8);
+    g.appendChild(text);
+
+    // Punto de anclaje
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    dot.setAttribute('cx', el.x);
+    dot.setAttribute('cy', el.y);
+    dot.setAttribute('r', '2');
+    dot.setAttribute('fill', '#0284c7');
+    dot.setAttribute('cursor', 'move');
+    dot.setAttribute('pointer-events', 'none');
+    g.appendChild(dot);
+
+    // Click para seleccionar
+    g.addEventListener('click', () => selectElement(el));
+
+    // Drag para mover
+    makeDraggable(g, el);
+
+    svg.appendChild(g);
   });
-  renderElementsTable();
-  updatePreview();
 }
 
-function updateElement(id, prop, value) {
-  if (!currentDesign) return;
-  const el = currentDesign.elements.find(e => e.id === id);
-  if (el) {
-    el[prop] = isNaN(value) ? value : parseInt(value);
-    updatePreview();
-  }
+let currentDraggingElement = null;
+
+function makeDraggable(element, dataEl) {
+  element.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const svg = document.getElementById('editorCanvas');
+    const rect = svg.getBoundingClientRect();
+    const startX = e.clientX - rect.left;
+    const startY = e.clientY - rect.top;
+    const offsetX = startX - dataEl.x;
+    const offsetY = startY - dataEl.y;
+
+    const moveHandler = (moveE) => {
+      moveE.preventDefault();
+      const svg = document.getElementById('editorCanvas');
+      const rect = svg.getBoundingClientRect();
+      const x = moveE.clientX - rect.left - offsetX;
+      const y = moveE.clientY - rect.top - offsetY;
+
+      dataEl.x = Math.max(0, Math.min(currentDesign.pageWidth - 20, Math.round(x)));
+      dataEl.y = Math.max(0, Math.min(currentDesign.pageHeight - 20, Math.round(y)));
+
+      const idx = currentDesign.elements.findIndex(el => el.id === dataEl.id);
+      if (idx >= 0) currentDesign.elements[idx] = dataEl;
+
+      renderEditorCanvas();
+      if (selectedElement && selectedElement.id === dataEl.id) {
+        selectedElement = JSON.parse(JSON.stringify(dataEl));
+        renderPropertiesPanel();
+      }
+    };
+
+    const upHandler = () => {
+      document.removeEventListener('mousemove', moveHandler);
+      document.removeEventListener('mouseup', upHandler);
+      currentDraggingElement = null;
+    };
+
+    document.addEventListener('mousemove', moveHandler);
+    document.addEventListener('mouseup', upHandler);
+    currentDraggingElement = dataEl.id;
+  });
 }
 
-function editElement(id) {
-  if (!currentDesign) return;
-  const el = currentDesign.elements.find(e => e.id === id);
-  if (!el) return;
-
-  const newLabel = prompt('Nombre:', el.label);
-  if (newLabel !== null) el.label = newLabel;
-
-  const newField = prompt('Campo (codigosenasa, qr, etc):', el.field);
-  if (newField !== null) el.field = newField;
-
-  if (el.type === 'text') {
-    const newSize = prompt('Tamaño (ej: 24,24):', el.fontSize);
-    if (newSize !== null) el.fontSize = newSize;
-  }
-
-  renderElementsTable();
-  updatePreview();
+function selectElement(el) {
+  selectedElement = JSON.parse(JSON.stringify(el));
+  renderEditorCanvas();
+  renderPropertiesPanel();
 }
 
-function deleteElement(id) {
-  if (!currentDesign || !confirm('¿Eliminar?')) return;
-  currentDesign.elements = currentDesign.elements.filter(e => e.id !== id);
-  renderElementsTable();
-  updatePreview();
-}
+function renderPropertiesPanel() {
+  const panel = document.getElementById('propertiesPanel');
 
-function updatePreview() {
-  if (!currentDesign || !state.data.length) {
-    document.getElementById('previewZPL').textContent = 'Carga un Excel primero...';
-    drawStickerPreview(null);
+  if (!selectedElement) {
+    panel.innerHTML = '<p style="color: #999; text-align: center; margin: 40px 0;">Selecciona un elemento en el canvas</p>';
     return;
   }
-  const record = state.data[0];
-  const zpl = generateZPLFromDesign(record, currentDesign);
-  document.getElementById('previewZPL').textContent = zpl;
-  drawStickerPreview(record);
+
+  const el = selectedElement;
+  const [fw, fh] = el.fontSize ? el.fontSize.split(',') : ['10', '10'];
+
+  panel.innerHTML = `
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div>
+        <label style="font-size: 12px; font-weight: 600; color: #374151;">Nombre</label>
+        <input type="text" value="${el.label}" id="propLabel" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;" onchange="updateSelectedElement('label', this.value)">
+      </div>
+
+      <div>
+        <label style="font-size: 12px; font-weight: 600; color: #374151;">Campo BD (Excel)</label>
+        <select id="propField" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;" onchange="updateSelectedElement('field', this.value)">
+          <option value="${el.field}" selected>${el.field}</option>
+          ${dbFields.map(f => `<option value="${f}" ${f === el.field ? 'selected' : ''}>${f}</option>`).join('')}
+        </select>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+        <div>
+          <label style="font-size: 12px; font-weight: 600; color: #374151;">X</label>
+          <input type="number" value="${el.x}" id="propX" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px;" onchange="updateSelectedElement('x', parseInt(this.value))">
+        </div>
+        <div>
+          <label style="font-size: 12px; font-weight: 600; color: #374151;">Y</label>
+          <input type="number" value="${el.y}" id="propY" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px;" onchange="updateSelectedElement('y', parseInt(this.value))">
+        </div>
+      </div>
+
+      ${el.type === 'text' ? `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label style="font-size: 12px; font-weight: 600; color: #374151;">Ancho (pt)</label>
+            <input type="number" value="${fw}" id="propFW" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px;" onchange="updateFontSize(this.value, ${fh})">
+          </div>
+          <div>
+            <label style="font-size: 12px; font-weight: 600; color: #374151;">Alto (pt)</label>
+            <input type="number" value="${fh}" id="propFH" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px;" onchange="updateFontSize(${fw}, this.value)">
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size: 12px; font-weight: 600; color: #374151;">Rotación</label>
+          <select id="propRotation" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;" onchange="updateSelectedElement('rotation', this.value)">
+            <option value="A0N" ${el.rotation === 'A0N' ? 'selected' : ''}>0° Horizontal</option>
+            <option value="A90N" ${el.rotation === 'A90N' ? 'selected' : ''}>90° Vertical (der)</option>
+            <option value="A270N" ${el.rotation === 'A270N' ? 'selected' : ''}>270° Vertical (izq)</option>
+          </select>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-sm" style="flex: 1; background: #f3f4f6; border: 1px solid #d1d5db; color: #374151;" onclick="changeFontSize(-1)">− Disminuir</button>
+          <button class="btn btn-sm" style="flex: 1; background: #f3f4f6; border: 1px solid #d1d5db; color: #374151;" onclick="changeFontSize(1)">+ Aumentar</button>
+        </div>
+      ` : `
+        <div>
+          <label style="font-size: 12px; font-weight: 600; color: #374151;">Módulos</label>
+          <input type="text" value="${el.size || '4,4'}" id="propSize" style="width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px;" onchange="updateSelectedElement('size', this.value)">
+        </div>
+      `}
+
+      <button class="btn btn-danger" style="width: 100%; margin-top: 12px;" onclick="deleteCurrentElement()">🗑️ Eliminar Elemento</button>
+    </div>
+  `;
+}
+
+function updateSelectedElement(prop, value) {
+  if (!selectedElement) return;
+  selectedElement[prop] = value;
+  const idx = currentDesign.elements.findIndex(e => e.id === selectedElement.id);
+  if (idx >= 0) {
+    currentDesign.elements[idx] = JSON.parse(JSON.stringify(selectedElement));
+  }
+  renderEditorCanvas();
+}
+
+function updateFontSize(w, h) {
+  if (selectedElement) {
+    selectedElement.fontSize = `${w},${h}`;
+    updateSelectedElement('fontSize', selectedElement.fontSize);
+  }
+}
+
+function changeFontSize(delta) {
+  if (!selectedElement || selectedElement.type !== 'text') return;
+  const [w, h] = selectedElement.fontSize.split(',').map(Number);
+  const newW = Math.max(1, w + delta);
+  const newH = Math.max(1, h + delta);
+  updateFontSize(newW, newH);
+  renderPropertiesPanel();
+}
+
+function deleteCurrentElement() {
+  if (!selectedElement || !confirm('¿Eliminar este elemento?')) return;
+  currentDesign.elements = currentDesign.elements.filter(e => e.id !== selectedElement.id);
+  selectedElement = null;
+  renderDesignEditor();
+}
+
+function renderElementsList() {
+  const list = document.getElementById('elementsList');
+  list.innerHTML = currentDesign.elements.map(el => `
+    <span class="btn btn-sm btn-outline" style="cursor: pointer; padding: 6px 10px;" title="${el.field}" data-element-id="${el.id}">
+      ${el.type === 'qr' ? '🔲' : '📝'} ${el.label}
+    </span>
+  `).join('');
+
+  // Agregar listeners a los botones
+  list.querySelectorAll('[data-element-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = parseInt(btn.getAttribute('data-element-id'));
+      const el = currentDesign.elements.find(e => e.id === id);
+      if (el) selectElement(el);
+    });
+  });
+}
+
+function addElementType(type) {
+  if (!currentDesign) return;
+  const newId = Math.max(...currentDesign.elements.map(e => e.id || 0), 0) + 1;
+
+  const newEl = {
+    id: newId,
+    type: type,
+    label: type === 'text' ? `Texto ${newId}` : `QR ${newId}`,
+    field: type === 'text' ? 'nombretrabajador' : 'qr',
+    x: 100,
+    y: 100,
+    order: currentDesign.elements.length + 1
+  };
+
+  if (type === 'text') {
+    newEl.fontSize = '8,8';
+    newEl.rotation = 'A0N';
+  } else {
+    newEl.size = '4,4';
+  }
+
+  currentDesign.elements.push(newEl);
+  selectElement(newEl);
+  renderDesignEditor();
+}
+
+function updateSpacingDots() {
+  const mm = parseFloat(document.getElementById('spacingMM').value) || 0;
+  const dots = Math.round(mm * 8);
+  document.getElementById('spacingDots').value = dots;
+
+  // Recalcular pageWidth: 4 * 200 + 3 * spacing
+  const newPageWidth = 4 * 200 + 3 * dots;
+  currentDesign.pageWidth = newPageWidth;
+  document.getElementById('pageWidthDisplay').textContent = newPageWidth;
+
+  renderEditorCanvas();
 }
 
 function drawStickerPreview(record) {
