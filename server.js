@@ -310,11 +310,7 @@ function generateZPLPage(recordsArray, design) {
   const stickerWidth = 200;
   const spacing = 10;
 
-  let zpl = `^XA
-^CI28
-^PW840
-^LL406
-`;
+  let zpl = `^XA\n^CI28\n^PW840\n^LL406\n`;
 
   // Completar array con nulls si tiene menos de 4 registros
   while (recordsArray.length < 4) {
@@ -327,31 +323,75 @@ function generateZPLPage(recordsArray, design) {
 
     if (!record) continue; // Saltar si no hay registro
 
-    // Convertir fecha
-    const fechaParts = record.fecha.split('-');
-    const fechaFormatted = fechaParts.length === 3
-      ? `${fechaParts[2]}/${fechaParts[1]}/${fechaParts[0]}`
-      : record.fecha;
+    // Si hay un diseño custom, usar generateZPLFromDesign adaptado para la posición
+    if (design && design.elements) {
+      // Generar ZPL para este registro con posicionamiento relativo
+      design.elements.forEach(el => {
+        if (el.type === 'text') {
+          let value = '';
 
-    const nombre = (record.nombretrabajador || '').substring(0, 22) || 'N/A';
-    const auxiliar = (record.nombreauxiliar || '').substring(0, 22) || 'N/A';
-    const codigoAux = (record.codigoauxiliar || '').substring(0, 5);
-    const contador = (record.contador || '').substring(0, 3);
+          // Manejo especial para campo combinado codigoauxiliar_contador
+          if (el.field === 'codigoauxiliar_contador') {
+            const codigoAux = (record.codigoauxiliar || '').substring(0, 5);
+            const contador = (record.contador || '').substring(0, 3);
+            value = `${codigoAux}/${contador}`;
+          } else {
+            // Convertir fecha a formato DD/MM/YYYY si es necesario
+            if (el.field === 'fecha' && record.fecha) {
+              const fechaParts = record.fecha.split('-');
+              if (fechaParts.length === 3) {
+                value = `${fechaParts[2]}/${fechaParts[1]}/${fechaParts[0]}`;
+              } else {
+                value = record.fecha;
+              }
+            } else {
+              value = record[el.field] || '';
+            }
+          }
 
-    // ARRIBA: Nombre del Trabajador (Y=28)
-    zpl += `^FO${baseX + 5},${28}^A0N,10,10^FD${nombre}^FS\n`;
+          // Convertir rotación a formato ZPL estándar
+          let zplRotation = 'A0N';
+          if (el.rotation === 'A90N' || el.rotation === 'A0R') {
+            zplRotation = 'A0R';
+          } else if (el.rotation === 'A270N' || el.rotation === 'A0B') {
+            zplRotation = 'A0B';
+          }
 
-    // IZQUIERDA: Fecha (Y=105, rotación 270°)
-    zpl += `^FO${baseX + 8},${105}^A0B,9,9^FD${fechaFormatted}^FS\n`;
+          const [fw, fh] = el.fontSize.split(',');
+          zpl += `^FO${baseX + el.x},${el.y}^${zplRotation},${fw},${fh}^FD${value}^FS\n`;
+        } else if (el.type === 'qr') {
+          const value = record[el.field] || '';
+          const [size1, size2] = el.size.split(',');
+          zpl += `^FO${baseX + el.x},${el.y}^BQN,${size1},${size2}^FDMA,${value}^FS\n`;
+        }
+      });
+    } else {
+      // Layout por defecto v1.3.0
+      const fechaParts = record.fecha.split('-');
+      const fechaFormatted = fechaParts.length === 3
+        ? `${fechaParts[2]}/${fechaParts[1]}/${fechaParts[0]}`
+        : record.fecha;
 
-    // CENTRO: QR Code (4x4)
-    zpl += `^FO${baseX + 85},${85}^BQN,4,4^FDMA,${record.qr}^FS\n`;
+      const nombre = (record.nombretrabajador || '').substring(0, 22) || 'N/A';
+      const auxiliar = (record.nombreauxiliar || '').substring(0, 22) || 'N/A';
+      const codigoAux = (record.codigoauxiliar || '').substring(0, 5);
+      const contador = (record.contador || '').substring(0, 3);
 
-    // DERECHA: Código/Contador (Y=105, rotación 90°)
-    zpl += `^FO${baseX + 192},${105}^A0R,9,9^FD${codigoAux}/${contador}^FS\n`;
+      // ARRIBA: Nombre del Trabajador (Y=28)
+      zpl += `^FO${baseX + 5},${28}^A0N,10,10^FD${nombre}^FS\n`;
 
-    // ABAJO: Nombre del Auxiliar (Y=180)
-    zpl += `^FO${baseX + 5},${180}^A0N,10,10^FD${auxiliar}^FS\n`;
+      // IZQUIERDA: Fecha (Y=105, rotación 270°)
+      zpl += `^FO${baseX + 8},${105}^A0B,9,9^FD${fechaFormatted}^FS\n`;
+
+      // CENTRO: QR Code (4x4)
+      zpl += `^FO${baseX + 85},${85}^BQN,4,4^FDMA,${record.qr}^FS\n`;
+
+      // DERECHA: Código/Contador (Y=105, rotación 90°)
+      zpl += `^FO${baseX + 192},${105}^A0R,9,9^FD${codigoAux}/${contador}^FS\n`;
+
+      // ABAJO: Nombre del Auxiliar (Y=180)
+      zpl += `^FO${baseX + 5},${180}^A0N,10,10^FD${auxiliar}^FS\n`;
+    }
   }
 
   zpl += `^PQ1\n^XZ\n`;
