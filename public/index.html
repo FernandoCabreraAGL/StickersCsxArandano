@@ -558,32 +558,22 @@ function getConfig() {
 
 async function printSelected() {
   const ids = Array.from(state.selected);
-  const designId = document.getElementById('designSelect').value;
+  const designId = document.getElementById('designSelect').value || undefined;
 
   try {
-    // Obtener los registros seleccionados
-    const records = state.data.filter(r => ids.includes(r.id));
-    if (!records.length) throw new Error('No se encontraron registros');
+    if (!ids.length) throw new Error('No se seleccionaron registros');
 
-    // Generar ZPL para cada registro
-    let printedCount = 0;
-    for (const record of records) {
-      const zpl = await generateZPL(record, designId);
+    // Enviar TODOS los IDs al backend para que agrupe correctamente
+    const res = await fetch('/api/print', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, designId })
+    });
 
-      // Enviar al agente local
-      try {
-        const res = await fetch('http://127.0.0.1:3001/api/print', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ zpl })
-        });
-        if (res.ok) printedCount++;
-      } catch (localErr) {
-        throw new Error('Agente local no disponible. ¿Está ejecutándose el .exe en PC #2?');
-      }
-    }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
 
-    toast(`${printedCount} etiqueta(s) enviada(s) a la impresora`, 'success');
+    toast(`✓ ${data.printed} etiqueta(s) impresa(s) correctamente`, 'success');
   } catch (err) {
     toast('Error: ' + err.message, 'error');
   }
@@ -609,33 +599,30 @@ function closeConfirmModal() { document.getElementById('confirmModal').classList
 
 async function printAll() {
   closeConfirmModal();
-  const designId = document.getElementById('designSelect').value;
+  const designId = document.getElementById('designSelect').value || undefined;
 
   try {
-    let printedCount = 0;
-
-    // Iterar por todas las páginas
+    // Recopilar TODOS los IDs sin paginar
+    let allIds = [];
     for (let page = 1; page <= state.totalPages; page++) {
       const res = await fetch(`/api/data?page=${page}&limit=1000`);
       const result = await res.json();
-
-      for (const record of result.data) {
-        const zpl = await generateZPL(record, designId);
-
-        try {
-          const printRes = await fetch('http://127.0.0.1:3001/api/print', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ zpl })
-          });
-          if (printRes.ok) printedCount++;
-        } catch (localErr) {
-          throw new Error('Agente local no disponible');
-        }
-      }
+      allIds = allIds.concat(result.data.map(r => r.id));
     }
 
-    toast(`${printedCount} etiqueta(s) enviada(s) correctamente`, 'success');
+    if (!allIds.length) throw new Error('No hay datos para imprimir');
+
+    // Enviar TODOS los IDs al backend
+    const printRes = await fetch('/api/print', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: allIds, designId })
+    });
+
+    const data = await printRes.json();
+    if (!printRes.ok) throw new Error(data.error);
+
+    toast(`✓ ${data.printed} etiqueta(s) impresa(s) correctamente`, 'success');
   } catch (err) {
     toast('Error: ' + err.message, 'error');
   }
@@ -786,12 +773,24 @@ async function loadDesigns() {
     const designList = await res.json();
     const select = document.getElementById('designSelect');
     select.innerHTML = '<option value="">-- Selecciona diseño --</option>';
+
+    let defaultDesignId = null;
     designList.forEach(d => {
       const opt = document.createElement('option');
       opt.value = d.id;
       opt.textContent = `${d.name}${d.active ? ' ★' : ''}`;
       select.appendChild(opt);
+
+      // Seleccionar el primero activo o el primero disponible
+      if (d.active || !defaultDesignId) {
+        defaultDesignId = d.id;
+      }
     });
+
+    // Auto-seleccionar el diseño por defecto
+    if (defaultDesignId) {
+      select.value = defaultDesignId;
+    }
   } catch (err) {
     console.error('Error cargando diseños:', err);
   }
