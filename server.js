@@ -499,19 +499,33 @@ app.post('/api/print-all', async (req, res) => {
 function sendToPrinter(ip, port, zpl) {
   return new Promise((resolve, reject) => {
     const client = new net.Socket();
-    client.setTimeout(10000);
+    client.setTimeout(30000); // Aumentar a 30 segundos
+
+    console.log(`[PRINT] Conectando a ${ip}:${port}`);
+    console.log(`[PRINT] Enviando ${zpl.length} bytes de ZPL`);
 
     client.connect(port, ip, () => {
+      console.log(`[PRINT] Conectado a ${ip}:${port}`);
       client.write(zpl, 'utf-8', () => {
+        console.log(`[PRINT] ZPL enviado, cerrando conexión`);
         client.end();
       });
     });
 
-    client.on('close', () => resolve());
-    client.on('error', (err) => reject(err));
+    client.on('close', () => {
+      console.log(`[PRINT] Conexión cerrada`);
+      resolve();
+    });
+
+    client.on('error', (err) => {
+      console.error(`[PRINT] Error: ${err.message}`);
+      reject(err);
+    });
+
     client.on('timeout', () => {
+      console.error(`[PRINT] Timeout después de 30 segundos`);
       client.destroy();
-      reject(new Error('Timeout de conexión'));
+      reject(new Error('Timeout de conexión (30s)'));
     });
   });
 }
