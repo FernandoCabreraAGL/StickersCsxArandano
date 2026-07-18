@@ -223,6 +223,14 @@ app.get('/api/selected-printer', (req, res) => {
   res.json(selectedPrinter);
 });
 
+app.get('/api/printer-debug', (req, res) => {
+  res.json({
+    selected: selectedPrinter,
+    default: { ip: PRINTER_IP, port: PRINTER_PORT },
+    message: `Intentará conectar a: ${selectedPrinter.ip}:${selectedPrinter.port}`
+  });
+});
+
 app.get('/api/data', (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 50;
