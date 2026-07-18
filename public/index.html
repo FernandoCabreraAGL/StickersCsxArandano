@@ -741,16 +741,29 @@ async function selectPrinter() {
   if (!ip) return;
 
   try {
-    const res = await fetch(`${AGENT_URL}/api/select`, {
+    // Notificar al backend (servidor web)
+    const backendRes = await fetch('/api/select-printer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ip, port: 9100 })
     });
-    const data = await res.json();
-    if (res.ok) {
-      document.getElementById('printerIp').value = ip;
-      toast(`✅ Impresora seleccionada: ${ip}`, 'success');
+
+    if (!backendRes.ok) throw new Error('Error al guardar en backend');
+
+    // También notificar al agente local si está disponible
+    try {
+      const res = await fetch(`${AGENT_URL}/api/select`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip, port: 9100 })
+      });
+    } catch (agentErr) {
+      // Si el agente local no está disponible, no es error crítico
+      console.log('Agente local no disponible:', agentErr.message);
     }
+
+    document.getElementById('printerIp').value = ip;
+    toast(`✅ Impresora seleccionada: ${ip}`, 'success');
   } catch (err) {
     toast('Error al seleccionar impresora: ' + err.message, 'error');
   }
